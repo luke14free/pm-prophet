@@ -22,12 +22,29 @@ What's not yet implemented w.r.t. [Facebook Prophet](https://facebook.github.io/
 Simple example:
     
     import pandas as pd
+    import numpy as np
     from model import PMProphet
-    
-    df = pd.read_csv("examples/example_wp_log_peyton_manning.csv")
-    m = PMProphet(df, intercept=True, growth=True, name='model')
-    m.add_seasonality(365.25, 2)
-    m.add_seasonality(7, 2)
-    m.fit(draws=100)
-    m.plot_components()
 
+    df = pd.read_csv("examples/example_wp_log_peyton_manning.csv")
+
+    # Fit both growth and intercept
+    m = PMProphet(df, growth=True, intercept=True, name='model')
+
+    # Add yearly seasonality (order: 3)
+    m.add_seasonality(seasonality=365.5, order=3)
+
+    # Add monthly seasonality (order: 3)
+    m.add_seasonality(seasonality=30, order=3)
+
+    # Add weekly seasonality (order: 3)
+    m.add_seasonality(seasonality=7, order=2)
+
+    # Add a white noise regressor
+    df['regressor'] = np.random.normal(loc=0, scale=1, size=(len(df)))
+    m.add_regressor('regressor')
+
+    # Fit the model (using NUTS, 1000 draws and MAP initialization)
+    m.fit(draws=1000, map_initialization=True)
+    
+    # Plot the fitted components
+    m.plot_components()
