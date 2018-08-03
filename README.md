@@ -10,6 +10,7 @@ What's implemented:
 * Additive seasonality
 * Fitting and plotting
 * Custom choice of priors (not included in the original prophet)
+* Fitting with NUTS/AVDI
 
 What's not yet implemented w.r.t. [Facebook Prophet](https://facebook.github.io/prophet/):
 * Forecasting
@@ -29,3 +30,4 @@ Simple example:
     m.add_seasonality(7, 2)
     m.fit(draws=100)
     m.plot_components()
+
