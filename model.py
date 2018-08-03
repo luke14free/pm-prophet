@@ -66,7 +66,7 @@ class PMProphet:
             if 'holidays' not in self.priors and self.holidays:
                 self.priors['holidays'] = pm.Laplace('holidays_%s' % self.name, 0, 10, shape=len(self.holidays))
             if 'regressors' not in self.priors and self.regressors:
-                self.priors['regressors'] = pm.Exponential('regressors_%s' % self.name, 10,
+                self.priors['regressors'] = pm.Normal('regressors_%s' % self.name, 0, 10,
                                                            shape=len(self.regressors))
             if self.growth and 'growth' not in self.priors and self.growth:
                 self.priors['growth'] = pm.Laplace('growth_%s' % self.name, 0, 20)
@@ -113,18 +113,19 @@ class PMProphet:
             pm.Normal('y_%s' % self.name, self.y, self.priors['sigma'], observed=self.data['y'])
             pm.Deterministic('y_hat_%s' % self.name, self.y)
 
-    def fit(self, draws=500, step='NUTS', finalize=True):
+    def fit(self, draws=500, method='NUTS', map_initialization=True, finalize=True):
         if finalize:
             self.finalize_model()
 
         with self.model:
-            self.start = pm.find_MAP()
+            if map_initialization:
+                self.start = pm.find_MAP()
 
             if draws:
-                if step == 'NUTS':
-                    self.trace = pm.sample(draws, start=self.start)
+                if method == 'NUTS':
+                    self.trace = pm.sample(draws, start=self.start if map_initialization else None)
                 else:
-                    res = pm.fit(draws, start=self.start)
+                    res = pm.fit(draws, start=self.start if map_initialization else None)
                     self.trace = res.sample(10 ** 4)
                 return self.trace
             return self.start
@@ -236,6 +237,7 @@ class PMProphet:
             if int(period) == 7:
                 plt.xticks(range(7), graph['ds'].values)
 
+
             plt.fill_between(
                 graph['ds'].values,
                 graph["%s_low" % int(period)].values.astype(float),
@@ -246,3 +248,12 @@ class PMProphet:
             plt.title("Model Seasonality for period: %s days" % int(period))
             plt.axes().xaxis.label.set_visible(False)
             plt.show()
+
+
+if __name__ == '__main__':
+    df = pd.read_csv("examples/example_wp_log_peyton_manning.csv")
+    m = PMProphet(df, intercept=True, growth=True, name='model')
+    m.add_seasonality(365.25, 2)
+    m.add_seasonality(7, 2)
+    m.fit(draws=100)
+    m.plot_components()
