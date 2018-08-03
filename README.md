@@ -11,7 +11,7 @@ What's implemented:
 * Fitting and plotting
 * Custom choice of priors (not included in the original prophet)
 
-What's not implemented w.r.t. Facebook's Prophet:
+What's not yet implemented w.r.t. Facebook's Prophet:
 * Forecasting
 * Multiplicative seasonality
 * Holidays (but you can add them as regressors)
