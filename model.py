@@ -5,8 +5,9 @@ import pymc3 as pm
 
 
 class PMProphet:
-    def __init__(self, data, growth=False, intercept=True, model=None, name=None):
+    def __init__(self, data, growth=False, intercept=True, model=None, name=None, change_points=[], n_change_points=0):
         self.data = data.copy()
+        self.data['ds'] = pd.to_datetime(arg=self.data['ds'])
         self.seasonality = []
         self.holidays = []
         self.regressors = []
@@ -17,14 +18,24 @@ class PMProphet:
         self.params = {}
         self.trace = {}
         self.start = {}
+        self.change_points = pd.DatetimeIndex(change_points)
+        self.name = name
 
+        if change_points and change_points:
+            raise Exception("You can either specify a list of changepoint dates of a number of them")
         if 'y' not in data.columns:
             raise Exception("Target variable should be called `y` in the `data` dataframe")
         if 'ds' not in data.columns:
             raise Exception("Time variable should be called `ds` in the `data` dataframe")
         if name is None:
             raise Exception("Specify a model name through the `name` parameter")
-        self.name = name
+
+        if n_change_points:
+            self.change_points = pd.date_range(
+                start=pd.to_datetime(self.data['ds'].min()),
+                end=pd.to_datetime(self.data['ds'].max()),
+                periods=n_change_points
+            )[:-1]  # Exclude last change-point
 
     @staticmethod
     def fourier_series(dates, period, series_order):
@@ -67,12 +78,35 @@ class PMProphet:
                 self.priors['holidays'] = pm.Laplace('holidays_%s' % self.name, 0, 10, shape=len(self.holidays))
             if 'regressors' not in self.priors and self.regressors:
                 self.priors['regressors'] = pm.Normal('regressors_%s' % self.name, 0, 10,
-                                                           shape=len(self.regressors))
-            if self.growth and 'growth' not in self.priors and self.growth:
+                                                      shape=len(self.regressors))
+            if self.growth and 'growth' not in self.priors:
                 self.priors['growth'] = pm.Laplace('growth_%s' % self.name, 0, 20)
-            if self.intercept and 'intercept' not in self.priors and self.intercept:
+            if self.growth and 'change_points' not in self.priors and len(self.change_points):
+                self.priors['change_points'] = pm.Laplace('change_points_%s' % self.name, 0, 20,
+                                                          shape=len(self.change_points))
+            if self.intercept and 'intercept' not in self.priors:
                 self.priors['intercept'] = pm.Gamma('intercept_%s' % self.name, mu=self.data['y'].mean(), sd=200,
                                                     testval=1.0)
+
+    def _fit_growth(self, prior=True, pct=50):
+        total_growth = 0
+        for idx, i in enumerate(self.change_points):
+            start = self.data.ix[(self.data['ds'] - i).abs().argsort()[:1]].index[0]
+            if idx + 1 == len(self.change_points):
+                end = len(self.data)  # last change point is valid till the end of the dataset
+            else:
+                end = self.data.ix[(self.data['ds'] - self.change_points[idx + 1]).abs().argsort()[:1]].index[0]
+            growth = np.arange(0, len(self.data), dtype='float64')
+            growth[0:start - 1] = 0
+            growth[end + 1: len(growth)] = 0
+            growth *= self.priors['change_points'][idx] if prior else np.percentile(
+                self.trace['change_points_%s' % self.name][idx], pct, axis=0)
+            total_growth += growth
+        if total_growth is 0:
+            total_growth = np.arange(0, len(self.data), dtype='float64')
+        total_growth *= self.priors['growth'] if prior else np.percentile(self.trace['growth_%s' % self.name], pct,
+                                                                          axis=0)
+        return total_growth
 
     def _prepare_fit(self):
         self.generate_priors()
@@ -82,7 +116,7 @@ class PMProphet:
             y += self.priors['intercept']
 
         if self.growth:
-            y += np.arange(0, len(self.data), dtype='float64') * self.priors['growth']
+            y += self._fit_growth()
 
         regressors = np.zeros(len(self.data))
         for idx, regressor in enumerate(self.regressors):
@@ -134,7 +168,7 @@ class PMProphet:
         sigma = np.percentile(self.trace['sigma_%s' % self.name], 50, axis=0)
         ddf = pd.DataFrame(
             [
-                self.data['ds'],
+                self.data['ds'].astype(str),
                 self.data['y'],
                 np.percentile(self.trace['y_hat_%s' % self.name], 50, axis=0),
                 np.percentile(self.trace['y_hat_%s' % self.name], 2, axis=0) + sigma,
@@ -146,16 +180,16 @@ class PMProphet:
         if model:
             self._plot_model(ddf)
         if seasonality and self.seasonality:
-            self._plot_growth(ddf)
-        if growth and self.growth:
             self._plot_seasonality(ddf)
+        if growth and self.growth:
+            self._plot_growth(ddf)
         if intercept and self.intercept:
             self._plot_intercept(ddf)
         if regressors and self.regressors:
             self._plot_regressors()
 
     def _plot_growth(self, ddf):
-        g_trace = self.trace['growth_%s' % self.name]
+        g_trace = self._fit_growth(prior=False)
         ddf['growth_mid'] = np.arange(0, len(ddf)) * np.percentile(g_trace, 50, axis=0)
         ddf['growth_low'] = np.arange(0, len(ddf)) * np.percentile(g_trace, 2, axis=0)
         ddf['growth_high'] = np.arange(0, len(ddf)) * np.percentile(g_trace, 98, axis=0)
@@ -183,7 +217,6 @@ class PMProphet:
             alpha=.3
         )
         plt.show()
-
 
     @staticmethod
     def _plot_model(ddf):
@@ -218,10 +251,9 @@ class PMProphet:
                 low += ddf['y'].mean() * np.percentile(s_trace, 2, axis=-1) * self.data[col]
                 high += ddf['y'].mean() * np.percentile(s_trace, 98, axis=-1) * self.data[col]
 
-            ddf["%s_mid" % int(period)] = mid
-            ddf["%s_low" % int(period)] = low
-            ddf["%s_high" % int(period)] = high
-
+            ddf.loc[:, "%s_mid" % int(period)] = mid
+            ddf.loc[:, "%s_low" % int(period)] = np.min([low, high], axis=0)
+            ddf.loc[:, "%s_high" % int(period)] = np.max([low, high], axis=0)
         for period in periods:
             graph = ddf.head(int(period))
             if int(period) == 7:
@@ -236,7 +268,6 @@ class PMProphet:
 
             if int(period) == 7:
                 plt.xticks(range(7), graph['ds'].values)
-
 
             plt.fill_between(
                 graph['ds'].values,

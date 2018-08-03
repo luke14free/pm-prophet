@@ -11,12 +11,12 @@ What's implemented:
 * Fitting and plotting
 * Custom choice of priors (not included in the original prophet)
 * Fitting with NUTS/AVDI
+* Changepoints in growth
 
 What's not yet implemented w.r.t. [Facebook Prophet](https://facebook.github.io/prophet/):
 * Forecasting
 * Multiplicative seasonality
 * Holidays (but you can add them as regressors)
-* Changepoints in mean/growth
 * (potentially other things)
 
 Simple example:
@@ -30,7 +30,7 @@ df = pd.read_csv("examples/example_wp_log_peyton_manning.csv")
 df['regressor'] = np.random.normal(loc=0, scale=1, size=(len(df)))
 
 # Fit both growth and intercept
-m = PMProphet(df, growth=True, intercept=True, name='model')
+m = PMProphet(df, growth=True, intercept=True, n_change_points=20, name='model')
 
 # Add yearly seasonality (order: 3)
 m.add_seasonality(seasonality=365.5, order=3)
@@ -45,8 +45,7 @@ m.add_seasonality(seasonality=7, order=2)
 m.add_regressor('regressor')
 
 # Fit the model (using NUTS, 1000 draws and MAP initialization)
-m.fit(draws=1000, map_initialization=True)
+m.fit(draws=10**5, method='AVDI', map_initialization=True)
 
-# Plot the fitted components
 m.plot_components()
 ```
