@@ -27,6 +27,7 @@ import numpy as np
 from model import PMProphet
 
 df = pd.read_csv("examples/example_wp_log_peyton_manning.csv")
+df['regressor'] = np.random.normal(loc=0, scale=1, size=(len(df)))
 
 # Fit both growth and intercept
 m = PMProphet(df, growth=True, intercept=True, name='model')
@@ -41,7 +42,6 @@ m.add_seasonality(seasonality=30, order=3)
 m.add_seasonality(seasonality=7, order=2)
 
 # Add a white noise regressor
-df['regressor'] = np.random.normal(loc=0, scale=1, size=(len(df)))
 m.add_regressor('regressor')
 
 # Fit the model (using NUTS, 1000 draws and MAP initialization)
