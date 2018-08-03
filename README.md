@@ -15,6 +15,7 @@ What's not implemented w.r.t. Facebook's Prophet:
 * Forecasting
 * Multiplicative seasonality
 * Holidays (but you can add them as regressors)
+* Changepoints in mean/growth
 * (potentially other things)
 
 Simple example:
