@@ -1,5 +1,5 @@
 # pm-prophet 
-Simplified version of the Facebook's Prophet model re-implemented in PyMC3
+Simplified version of the [Facebook Prophet](https://facebook.github.io/prophet/) model re-implemented in PyMC3
 
 Note that this implementation uses un-standardized data behind the scenes to generate easily understandable parameters (yet this might not be optimal for best fitting purposes).
 
@@ -11,10 +11,11 @@ What's implemented:
 * Fitting and plotting
 * Custom choice of priors (not included in the original prophet)
 
-What's not implemented w.r.t. Facebook's Prophet:
+What's not yet implemented w.r.t. [Facebook Prophet](https://facebook.github.io/prophet/):
 * Forecasting
 * Multiplicative seasonality
 * Holidays (but you can add them as regressors)
+* Changepoints in mean/growth
 * (potentially other things)
 
 Simple example:
