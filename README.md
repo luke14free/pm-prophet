@@ -11,7 +11,7 @@ What's implemented:
 * Fitting and plotting
 * Custom choice of priors (not included in the original prophet)
 * Fitting with NUTS/AVDI
-* Changepoints in growth (WIP)
+* Changepoints in growth
 
 What's not yet implemented w.r.t. [Facebook Prophet](https://facebook.github.io/prophet/):
 * Forecasting
@@ -45,8 +45,8 @@ m.add_regressor('regressor')
 # Fit the model (using NUTS, 1000 draws and MAP initialization)
 m.fit(
     draws=10**4, 
-    method='Metropolis', 
-    sample_kwargs={'chains':1, 'njobs':1},
+    method='Metropolis', # you can also try NUTS or AVDI
+    sample_kwargs={'chains':1, 'njobs':1}, # NOTE: you should use more than 1 chain
     map_initialization=False
 )
 
