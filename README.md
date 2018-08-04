@@ -10,7 +10,7 @@ What's implemented:
 * Additive seasonality
 * Fitting and plotting
 * Custom choice of priors (not included in the original prophet)
-* Fitting with NUTS/AVDI
+* Fitting with NUTS/AVDI/Metropolis
 * Changepoints in growth
 
 What's not yet implemented w.r.t. [Facebook Prophet](https://facebook.github.io/prophet/):
