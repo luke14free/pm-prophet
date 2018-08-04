@@ -11,12 +11,13 @@ What's implemented:
 * Fitting and plotting
 * Custom choice of priors (not included in the original prophet)
 * Fitting with NUTS/AVDI
-* Changepoints in growth
+* Changepoints in growth (WIP)
 
 What's not yet implemented w.r.t. [Facebook Prophet](https://facebook.github.io/prophet/):
 * Forecasting
 * Multiplicative seasonality
 * Holidays (but you can add them as regressors)
+* Saturating growth
 * (potentially other things)
 
 Simple example:
