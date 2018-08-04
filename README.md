@@ -53,9 +53,9 @@ m.fit(
 m.plot_components()
 ```
 
-[[https://github.com/luke14free/pm-prophet/blob/master/examples/images/download.png]]
-[[https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-1.png]]
-[[https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-2.png]]
-[[https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-3.png]]
-[[https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-4.png]]
-[[https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-5.png]]
+![model](https://github.com/luke14free/pm-prophet/blob/master/examples/images/download.png)
+![seasonality-1][https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-1.png]]
+![seasonality-2][https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-2.png]]
+![growth][https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-3.png]]
+![intercept][https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-4.png]]
+![regressor][https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-5.png]]
