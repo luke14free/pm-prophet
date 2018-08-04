@@ -34,19 +34,28 @@ df['regressor'] = np.random.normal(loc=0, scale=1, size=(len(df)))
 m = PMProphet(df, growth=True, intercept=True, n_change_points=20, name='model')
 
 # Add yearly seasonality (order: 3)
-m.add_seasonality(seasonality=365.5, order=3)
+m.add_seasonality(seasonality=365.5, order=2)
 
 # Add monthly seasonality (order: 3)
-m.add_seasonality(seasonality=30, order=3)
-
-# Add weekly seasonality (order: 3)
-m.add_seasonality(seasonality=7, order=2)
+m.add_seasonality(seasonality=30, order=2)
 
 # Add a white noise regressor
 m.add_regressor('regressor')
 
 # Fit the model (using NUTS, 1000 draws and MAP initialization)
-m.fit(draws=10**5, method='AVDI', map_initialization=True)
+m.fit(
+    draws=10**4, 
+    method='Metropolis', 
+    sample_kwargs={'chains':1, 'njobs':1},
+    map_initialization=False
+)
 
 m.plot_components()
 ```
+
+[[https://github.com/luke14free/pm-prophet/blob/master/examples/images/download.png]]
+[[https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-1.png]]
+[[https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-2.png]]
+[[https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-3.png]]
+[[https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-4.png]]
+[[https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-5.png]]
