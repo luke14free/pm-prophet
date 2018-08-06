@@ -2,7 +2,7 @@ import matplotlib.pylab as plt
 import numpy as np
 import pandas as pd
 import pymc3 as pm
-import theano.tensor as T
+from scipy.stats import norm
 
 
 class PMProphet:
@@ -81,13 +81,12 @@ class PMProphet:
                 self.priors['regressors'] = pm.Normal('regressors_%s' % self.name, 0, 10,
                                                       shape=len(self.regressors))
             if self.growth and 'growth' not in self.priors:
-                self.priors['growth'] = pm.Laplace('growth_%s' % self.name, 0, 20)
+                self.priors['growth'] = pm.Normal('growth_%s' % self.name, 0, 10)
             if self.growth and 'change_points' not in self.priors and len(self.change_points):
-                self.priors['change_points'] = pm.Laplace('change_points_%s' % self.name, 0, 20,
+                self.priors['change_points'] = pm.Laplace('change_points_%s' % self.name, 0, 10,
                                                           shape=len(self.change_points))
             if self.intercept and 'intercept' not in self.priors:
-                self.priors['intercept'] = pm.Gamma('intercept_%s' % self.name, mu=self.data['y'].mean(), sd=200,
-                                                    testval=1.0)
+                self.priors['intercept'] = pm.Flat('intercept_%s' % self.name, testval=1.0)
 
     def _fit_growth(self, prior=True, pct=50):
         x = np.arange(len(self.data), dtype='float64') if prior else np.ones(len(self.data), dtype='float64')
@@ -139,7 +138,12 @@ class PMProphet:
     def finalize_model(self):
         self._prepare_fit()
         with self.model:
-            pm.Normal('y_%s' % self.name, self.y, self.priors['sigma'], observed=self.data['y'])
+            pm.Normal(
+                'y_%s' % self.name,
+                mu=(self.y - self.data['y'].mean()) / self.data['y'].std(),
+                sd=self.priors['sigma'],
+                observed=(self.data['y'] - self.data['y'].mean()) / self.data['y'].std()
+            )
             pm.Deterministic('y_hat_%s' % self.name, self.y)
 
     def fit(self, draws=500, method='NUTS', map_initialization=False, finalize=True, step_kwargs={}, sample_kwargs={}):
@@ -148,7 +152,7 @@ class PMProphet:
 
         with self.model:
             if map_initialization:
-                self.start = pm.find_MAP()
+                self.start = pm.find_MAP(maxeval=10000)
 
             if draws:
                 if method == 'NUTS' or method == 'Metropolis':
@@ -165,15 +169,16 @@ class PMProphet:
             return self.start
 
     def plot_components(self, model=True, seasonality=True, growth=True, regressors=True, intercept=True,
-                        plt_kwargs={}):
+                        plt_kwargs={}, alpha=0.05):
         sigma = np.percentile(self.trace['sigma_%s' % self.name], 50, axis=0)
+        z = abs(norm.ppf(alpha / 2))
         ddf = pd.DataFrame(
             [
                 self.data['ds'].astype(str),
                 self.data['y'],
                 np.percentile(self.trace['y_hat_%s' % self.name], 50, axis=0),
-                np.percentile(self.trace['y_hat_%s' % self.name], 2, axis=0) + sigma,
-                np.percentile(self.trace['y_hat_%s' % self.name], 98, axis=0) - sigma,
+                np.percentile(self.trace['y_hat_%s' % self.name], 2, axis=0) - z * sigma,
+                np.percentile(self.trace['y_hat_%s' % self.name], 98, axis=0) + z * sigma,
             ]).T
 
         ddf.columns = ['ds', 'y', 'y_mid', 'y_low', 'y_high']

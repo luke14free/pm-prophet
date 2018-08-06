@@ -1,22 +1,20 @@
 # pm-prophet 
 Simplified version of the [Facebook Prophet](https://facebook.github.io/prophet/) model re-implemented in PyMC3
 
-Note that this implementation uses un-standardized data behind the scenes to generate easily understandable parameters (yet this might not be optimal for best fitting purposes).
-
 What's implemented:
 * Nowcasting
 * Intercept, growth
 * Regressors
+* Holidays
 * Additive seasonality
 * Fitting and plotting
 * Custom choice of priors (not included in the original prophet)
 * Fitting with NUTS/AVDI
-* Changepoints in growth (WIP)
+* Changepoints in growth
 
 What's not yet implemented w.r.t. [Facebook Prophet](https://facebook.github.io/prophet/):
 * Forecasting
 * Multiplicative seasonality
-* Holidays (but you can add them as regressors)
 * Saturating growth
 * (potentially other things)
 
@@ -59,3 +57,25 @@ m.plot_components()
 [[https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-3.png]]
 [[https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-4.png]]
 [[https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-5.png]]
+
+## BYOP - Bring Your Own Priors
+
+The default priors are:
+
+Variable | Prior | Parameters
+--- | --- | --- 
+`regressors` | Normal | loc:0, scale:10 
+`holidays` | Laplace | loc:0, scale:10 
+`seasonality` | Laplace | loc:0, scale:1 
+`growth` | Laplace | loc:0, scale:10 
+`changepoints` | Laplace | loc:0, scale:10 
+`intercept` | Flat Prior | - 
+`sigma` | Half Cauchy | loc:100
+
+But you can change model priors by inspecting and modifying the distribution in
+
+```python
+m.priors
+```
+
+which is a dictionary of {prior: pymc3-distribution}.
