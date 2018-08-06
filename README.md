@@ -51,10 +51,10 @@ m.fit(
 m.plot_components()
 ```
 
-[Model!](https://github.com/luke14free/pm-prophet/blob/master/examples/images/download.png)
-[S1!](https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-1.png)
-[S2!](https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-2.png)
-[D3!](https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-3.png)
+![Model](https://github.com/luke14free/pm-prophet/blob/master/examples/images/download.png)
+![S1](https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-1.png)
+![S2](https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-2.png)
+![D3](https://github.com/luke14free/pm-prophet/blob/master/examples/images/download-3.png)
 
 ## BYOP - Bring Your Own Priors
 
