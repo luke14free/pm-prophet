@@ -263,7 +263,7 @@ class PMProphet:
             ddf.plot('ds', 'orig_y', style='k.', ax=plt.gca(), alpha=.2)
             for change_point in m.change_points:
                 plt.axvline(change_point, color='C2', lw=1, ls='dashed')
-            plt.axvline(pd.to_datetime(df.ds).max(), color='C3', lw=1, ls='dotted')
+            plt.axvline(pd.to_datetime(self.data.ds).max(), color='C3', lw=1, ls='dotted')
             plt.show()
 
         return ddf
