@@ -52,11 +52,11 @@ m.plot_components(
 )
 ```
 
-![Model](https://raw.githubusercontent.com/luke14free/pm-prophet/branch/examples/images/model.png)
-![Seasonality-7](https://raw.githubusercontent.com/luke14free/pm-prophet/branch/examples/images/seasonality7.png)
-![Seasonality-30](https://raw.githubusercontent.com/luke14free/pm-prophet/branch/examples/images/seasonality30.png)
-![Growth](https://raw.githubusercontent.com/luke14free/pm-prophet/branch/examples/images/growth.png)
-![Change Points](https://raw.githubusercontent.com/luke14free/pm-prophet/branch/examples/images/changepoints.png)
+![Model](https://raw.githubusercontent.com/luke14free/pm-prophet/master/examples/images/model.png)
+![Seasonality-7](https://raw.githubusercontent.com/luke14free/pm-prophet/master/examples/images/seasonality7.png)
+![Seasonality-30](https://raw.githubusercontent.com/luke14free/pm-prophet/master/examples/images/seasonality30.png)
+![Growth](https://raw.githubusercontent.com/luke14free/pm-prophet/master/examples/images/growth.png)
+![Change Points](https://raw.githubusercontent.com/luke14free/pm-prophet/master/examples/images/changepoints.png)
 ## Custom Priors
 
 One of the main reason why PMProphet was built is to allow custom priors for the modeling.
@@ -121,4 +121,4 @@ m.fit(
 m.plot_components()
 ```
 
-![Regressors](https://raw.githubusercontent.com/luke14free/pm-prophet/branch/examples/images/regressors.png)
+![Regressors](https://raw.githubusercontent.com/luke14free/pm-prophet/master/examples/images/regressors.png)
