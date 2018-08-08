@@ -252,7 +252,7 @@ class PMProphet:
         if plot:
             plt.figure(figsize=(20, 10))
             ddf.plot('ds', 'y_hat', ax=plt.gca())
-            ddf['orig_y'] = df['y']
+            ddf['orig_y'] = self.data['y']
             plt.fill_between(
                 ddf['ds'].values,
                 ddf['y_low'].values.astype(float),
