@@ -1,5 +1,5 @@
 # pm-prophet 
-Simplified version of the [Facebook Prophet](https://facebook.github.io/prophet/) model re-implemented in PyMC3
+Simplified version of the [Facebook Prophet](https://facebook.github.io/prophet/) model re-implemented in PyMC3. Note that PMProphet only supports the *full bayesian* estimation through MCMC (more precisely it uses [PyMC3](https://docs.pymc.io/)).
 
 What's implemented:
 * Nowcasting & Forecasting
@@ -9,8 +9,8 @@ What's implemented:
 * Additive seasonality
 * Fitting and plotting
 * Custom choice of priors (not included in the original prophet)
-* Fitting with NUTS/AVDI/Metropolis
 * Changepoints in growth
+* Fitting with NUTS/AVDI/Metropolis
 
 What's not yet implemented w.r.t. [Facebook Prophet](https://facebook.github.io/prophet/):
 * Multiplicative seasonality
