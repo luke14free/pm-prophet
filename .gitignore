@@ -1,2 +1,8 @@
 venv
 .idea
+*.code-workspace
+*.ipynb
+*__pycache__
+*.pyc
+*.o
+*.egg-info
