@@ -289,17 +289,17 @@ class PMProphet:
             plt_kwargs = {'figsize': (20, 10)}
 
         if seasonality and self.seasonality:
-            self._plot_seasonality(plt_kwargs)
+            self._plot_seasonality(alpha, plt_kwargs)
         if growth and self.growth:
-            self._plot_growth(plt_kwargs)
+            self._plot_growth(alpha, plt_kwargs)
         if intercept and self.intercept:
-            self._plot_intercept(plt_kwargs)
+            self._plot_intercept(alpha, plt_kwargs)
         if regressors and self.regressors:
-            self._plot_regressors(plt_kwargs)
+            self._plot_regressors(alpha, plt_kwargs)
         if change_points and len(self.change_points):
-            self._plot_change_points(plt_kwargs)
+            self._plot_change_points(alpha, plt_kwargs)
 
-    def _plot_growth(self, plot_kwargs):
+    def _plot_growth(self, alpha, plot_kwargs):
         ddf = self.make_trend(alpha)
         g = self.fit_growth(prior=False)
         ddf['growth_mid'] = np.percentile(g, 50, axis=-1)
@@ -319,7 +319,7 @@ class PMProphet:
         plt.grid()
         plt.show()
 
-    def _plot_intercept(self, ddf, plot_kwargs):
+    def _plot_intercept(self, alpha, plot_kwargs):
         plt.figure(**plot_kwargs)
         pm.forestplot(self.trace, varnames=['intercept_%s' % self.name], ylabels="Intercept")
         plt.show()
@@ -342,7 +342,7 @@ class PMProphet:
         plt.legend(['fitted', 'observed'])
         plt.show()
 
-    def _plot_regressors(self, plot_kwargs):
+    def _plot_regressors(self, alpha, plot_kwargs):
         plt.figure(**plot_kwargs)
         pm.forestplot(self.trace, varnames=['regressors_%s' % self.name], ylabels=self.regressors)
         plt.show()
@@ -359,14 +359,14 @@ class PMProphet:
                 idx += 1
         return ts.sum(axis=0) if flatten_components else ts
 
-    def _plot_change_points(self, plot_kwargs):
+    def _plot_change_points(self, alpha, plot_kwargs):
         plt.figure(**plot_kwargs)
         pm.forestplot(self.trace, varnames=['change_points_%s' % self.name], ylabels=self.change_points.astype(str))
         plt.grid()
         plt.title("Growth Change Points")
         plt.show()
 
-    def _plot_seasonality(self, plot_kwargs):
+    def _plot_seasonality(self, alpha, plot_kwargs):
         periods = list(set([float(i.split("_")[1]) for i in self.seasonality]))
         ts = self.fit_seasonality()
         ddf = pd.DataFrame(

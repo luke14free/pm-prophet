@@ -45,9 +45,6 @@ m.fit(
 
 ddf = m.predict(100, alpha=0.4, include_history=True, plot=True)
 m.plot_components(
-    seasonality=True, 
-    trend=True,
-    change_points=True,
     intercept=False,
 )
 ```
