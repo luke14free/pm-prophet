@@ -4,7 +4,7 @@ from setuptools import find_packages
 REQUIRED_PACKAGES = [
     'matplotlib',
     'numpy',
-    'pandas',
+    'pandas >= 0.23.0',
     'pymc3',
 ]
 
