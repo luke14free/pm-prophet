@@ -1,5 +1,9 @@
 # pm-prophet 
-Simplified version of the [Facebook Prophet](https://facebook.github.io/prophet/) model re-implemented in PyMC3. Note that PMProphet only supports the *full bayesian* estimation through MCMC (more precisely it uses [PyMC3](https://docs.pymc.io/)).
+Simplified version of the [Facebook Prophet](https://facebook.github.io/prophet/) model re-implemented in PyMC3. Note that PMProphet only supports the *full bayesian* estimation through MCMC (more precisely it uses [PyMC3](https://docs.pymc.io/)). Note also that this is still an early version and it might definitely contain code and/or conceptual bugs.
+
+To install:
+
+`pip install pmprophet`
 
 What's implemented:
 * Nowcasting & Forecasting
