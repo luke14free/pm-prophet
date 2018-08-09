@@ -4,7 +4,6 @@ import matplotlib.pylab as plt
 import numpy as np
 import pandas as pd
 import pymc3 as pm
-from scipy.stats import norm
 
 
 class PMProphet:
@@ -433,3 +432,4 @@ if __name__ == '__main__':
         sample_kwargs={'chains':1, 'njobs':1},
         map_initialization=False
     )
+    
