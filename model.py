@@ -4,7 +4,6 @@ import matplotlib.pylab as plt
 import numpy as np
 import pandas as pd
 import pymc3 as pm
-from scipy.stats import norm
 
 
 class PMProphet:
@@ -405,31 +404,3 @@ class PMProphet:
             plt.title("Model Seasonality for period: %s days" % period)
             plt.axes().xaxis.label.set_visible(False)
             plt.show()
-
-
-if __name__ == '__main__':
-    import quandl
-    quandl.ApiConfig.api_key = 'GyJvPbevdyYpaR_3j87q'
-    gm = quandl.get('WIKI/GM')
-    gm.head(5)
-    gm['y'] = gm['Close']
-    gm['ds'] = pd.to_datetime(gm.index)
-    # Fit both growth and intercept
-    m = PMProphet(gm, growth=True, intercept=True, n_change_points=20, name='model')
-
-    # Add yearly seasonality (order: 3)
-    m.add_seasonality(seasonality=365.5, order=2)
-
-    # Add monthly seasonality (order: 3)
-    # m.add_seasonality(seasonality=30, order=2)
-
-    # Add a white noise regressor
-    # m.add_regressor('regressor')
-
-    # Fit the model (using NUTS, 1000 draws and MAP initialization)
-    m.fit(
-        draws=10**4,
-        method='Metropolis',
-        sample_kwargs={'chains':1, 'njobs':1},
-        map_initialization=False
-    )
