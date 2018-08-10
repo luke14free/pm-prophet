@@ -11,11 +11,11 @@ class PMProphet:
 
     Parameters
     ----------
-    data: pd.DataFrame (with 'y' and 'ds' columns)
+    data : pd.DataFrame (with 'y' and 'ds' columns)
         Data to be used for fitting the model.
-    growth: bool
+    growth : bool
         Include the growth component.
-    intercept: bool
+    intercept : bool
         Include the intercept.
     model : PyMC3 model.
         Initialize with a model.
@@ -66,11 +66,11 @@ class PMProphet:
 
         Parameters
         ----------
-        dates: pd.Series
+        dates : pd.Series
             Timestamps of dates.
-        period: int
+        period : int
             Number of days of the period.
-        series_order: int
+        series_order : int
             Number of components.
 
         Returns
@@ -93,8 +93,8 @@ class PMProphet:
 
         Parameters
         ----------
-        seasonality:
-        fourier_order: int
+        seasonality :
+        fourier_order : int
             Number of Fourier components to use.
 
         Returns
@@ -115,7 +115,7 @@ class PMProphet:
         
         Parameters
         ----------
-        name: string
+        name : string
             Name of the holiday component.
         date_start :
         date_end :
@@ -133,7 +133,7 @@ class PMProphet:
 
         Parameters
         ----------
-        name: string
+        name : string
             Name of the regressor.
         regressor : 
 
