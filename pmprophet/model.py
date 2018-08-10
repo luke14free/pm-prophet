@@ -11,13 +11,20 @@ class PMProphet:
 
     Parameters
     ----------
-    data: Data to be used for fitting the model.
-    growth: Include the growth component.
-    intercept: Include the intercept.
-    model : Initialize with a model.
-    name :  Name of the model.
-    changepoints : List of dates at which to include potential changepoints.
-    n_changepoints : Number of potential changepoints to include.
+    data: pd.DataFrame (with 'y' and 'ds' columns)
+        Data to be used for fitting the model.
+    growth: bool
+        Include the growth component.
+    intercept: bool
+        Include the intercept.
+    model : PyMC3 model.
+        Initialize with a model.
+    name : string
+        Name of the model.
+    changepoints : list
+        List of dates at which to include potential changepoints.
+    n_changepoints : int
+        Number of potential changepoints to include.
     """
     def __init__(self, data, growth=False, intercept=True, model=None, name=None, changepoints=[], n_changepoints=0):
         self.data = data.copy()
@@ -59,9 +66,12 @@ class PMProphet:
 
         Parameters
         ----------
-        dates: pd.Series containing timestamps.
-        period: Number of days of the period.
-        series_order: Number of components.
+        dates: pd.Series
+            Timestamps of dates.
+        period: int
+            Number of days of the period.
+        series_order: int
+            Number of components.
 
         Returns
         -------
@@ -78,40 +88,24 @@ class PMProphet:
             for fun in (np.sin, np.cos)
         ])
 
-    def add_seasonality(self, seasonality, order):
-        """Add a seasonal component with specified period, number of Fourier
-        components, and prior scale.
-
-        Increasing the number of Fourier components allows the seasonality to
-        change more quickly (at risk of overfitting). Default values for yearly
-        and weekly seasonalities are 10 and 3 respectively.
-        Increasing prior scale will allow this seasonality component more
-        flexibility, decreasing will dampen it. If not provided, will use the
-        seasonality_prior_scale provided on Prophet initialization (defaults
-        to 10).
-
-        Mode can be specified as either 'additive' or 'multiplicative'. If not
-        specified, self.seasonality_mode will be used (defaults to additive).
-        Additive means the seasonality will be added to the trend,
-        multiplicative means it will multiply the trend.
+    def add_seasonality(self, seasonality, fourier_order):
+        """Add a seasonal component.
 
         Parameters
         ----------
-        name: string name of the seasonality component.
-        period: float number of days in one period.
-        fourier_order: int number of Fourier components to use.
-        prior_scale: optional float prior scale for this component.
-        mode: optional 'additive' or 'multiplicative'
+        seasonality:
+        fourier_order: int
+            Number of Fourier components to use.
 
         Returns
         -------
         The PMProphet object.
         """
-        self.seasonality.extend(['f_%s_%s' % (seasonality, order_idx) for order_idx in range(order)])
+        self.seasonality.extend(['f_%s_%s' % (seasonality, order_idx) for order_idx in range(fourier_order)])
         fourier_series = PMProphet.fourier_series(
-            pd.to_datetime(self.data['ds']), seasonality, order
+            pd.to_datetime(self.data['ds']), seasonality, fourier_order
         )
-        for order_idx in range(order):
+        for order_idx in range(fourier_order):
             self.data['f_%s_%s' % (seasonality, order_idx)] = fourier_series[:, order_idx]
 
         return self
@@ -121,7 +115,8 @@ class PMProphet:
         
         Parameters
         ----------
-        name: string name of the holiday component.
+        name: string
+            Name of the holiday component.
         date_start :
         date_end :
 
@@ -138,7 +133,8 @@ class PMProphet:
 
         Parameters
         ----------
-        name: string name of the regressor.
+        name: string
+            Name of the regressor.
         regressor : 
 
         Returns
@@ -247,16 +243,19 @@ class PMProphet:
 
         Parameters
         ----------
-        draws : Integer, if greater than 0, will do full Bayesian inference
-            with the specified number of MCMC samples. If 0, will do MAP
-            estimation.
-        method : 'NUTS' or 'Metropolis'
-        map_initialization : Initialize the model with maximum a posteriori
-            estimates.
-        finalize : Finalize the model.
-        step_kwargs : Additional arguments for the sampling algorithms
+        draws : int
+            If greater than 0, will do full Bayesian inference with the
+            specified number of MCMC samples. If 0, will do MAP estimation.
+        method : 'NUTS' or 'Metropolis'.
+        map_initialization : bool
+            Initialize the model with maximum a posteriori estimates.
+        finalize : bool
+            Finalize the model.
+        step_kwargs : dict
+            Additional arguments for the sampling algorithms
             (`NUTS` or `Metropolis`).
-        sample_kwargs : Additional arguments for the PyMC3 `sample` function.
+        sample_kwargs : dict
+            Additional arguments for the PyMC3 `sample` function.
 
         Returns
         -------
@@ -289,11 +288,14 @@ class PMProphet:
         Parameters
         ----------
         forecasting_periods :
-        freq :
-        extra_data :
-        include_history : If True, predictions are concatenated to the data.
-        alpha : Width of the the credible intervals.
-        plot : Plot the predictions.
+        freq : string, default: 'D'
+        extra_data : pd.DataFrame
+        include_history : bool
+            If True, predictions are concatenated to the data.
+        alpha : float
+            Width of the the credible intervals.
+        plot : bool
+            Plot the predictions.
 
         Returns
         -------
@@ -339,7 +341,7 @@ class PMProphet:
                 periods[period].append(int(order))
 
         for period, orders in periods.items():
-            m.add_seasonality(seasonality=float(period), order=max(orders) + 1)
+            m.add_seasonality(seasonality=float(period), fourier_order=max(orders) + 1)
 
         m.priors = self.priors
         m.trace = self.trace
@@ -408,13 +410,20 @@ class PMProphet:
 
         Parameters
         ----------
-        seasonality : Plot seasonality components if feasible.
-        growth : Plot growth component if feasible.
-        regressors : Plot regressors if feasible.
-        intercept : Plot intercept if feasible.
-        changepoints : Plot changepoints if feasible.
-        plt_kwargs : Additional arguments passed to plotting functions.
-        alpha : Width of the the credible intervals.
+        seasonality : bool
+            Plot seasonality components if feasible.
+        growth : bool
+            Plot growth component if feasible.
+        regressors : bool
+            Plot regressors if feasible.
+        intercept : bool
+            Plot intercept if feasible.
+        changepoints : bool
+            Plot changepoints if feasible.
+        plt_kwargs : dict
+            Additional arguments passed to plotting functions.
+        alpha : float
+            Width of the the credible intervals.
 
         Returns
         -------
