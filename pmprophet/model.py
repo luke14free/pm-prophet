@@ -7,7 +7,19 @@ import pymc3 as pm
 
 
 class PMProphet:
-    def __init__(self, data, growth=False, intercept=True, model=None, name=None, change_points=[], n_change_points=0):
+    """Prophet forecaster.
+
+    Parameters
+    ----------
+    data: Data to be used for fitting the model.
+    growth: Include the growth component.
+    intercept: Include the intercept.
+    model : Initialize with a model.
+    name :  Name of the model.
+    changepoints : List of dates at which to include potential changepoints.
+    n_changepoints : Number of potential changepoints to include.
+    """
+    def __init__(self, data, growth=False, intercept=True, model=None, name=None, changepoints=[], n_changepoints=0):
         self.data = data.copy()
         self.data['ds'] = pd.to_datetime(arg=self.data['ds'])
         self.data.index = range(len(self.data))
@@ -21,10 +33,10 @@ class PMProphet:
         self.params = {}
         self.trace = {}
         self.start = {}
-        self.change_points = pd.DatetimeIndex(change_points)
+        self.changepoints = pd.DatetimeIndex(changepoints)
         self.name = name
 
-        if change_points and change_points:
+        if changepoints and n_changepoints:
             raise Exception("You can either specify a list of changepoint dates of a number of them")
         if 'y' not in data.columns:
             raise Exception("Target variable should be called `y` in the `data` dataframe")
@@ -33,15 +45,28 @@ class PMProphet:
         if name is None:
             raise Exception("Specify a model name through the `name` parameter")
 
-        if n_change_points:
-            self.change_points = pd.date_range(
+        if n_changepoints:
+            self.changepoints = pd.date_range(
                 start=pd.to_datetime(self.data['ds'].min()),
                 end=pd.to_datetime(self.data['ds'].max()),
-                periods=n_change_points + 2
+                periods=n_changepoints + 2
             )[1:-1]  # Exclude first and last change-point
 
     @staticmethod
     def fourier_series(dates, period, series_order):
+        """Provides Fourier series components with the specified frequency
+        and order.
+
+        Parameters
+        ----------
+        dates: pd.Series containing timestamps.
+        period: Number of days of the period.
+        series_order: Number of components.
+
+        Returns
+        -------
+        Matrix with seasonality features.
+        """
         t = np.array(
             (dates - pd.datetime(1970, 1, 1))
                 .dt.total_seconds()
@@ -54,6 +79,34 @@ class PMProphet:
         ])
 
     def add_seasonality(self, seasonality, order):
+        """Add a seasonal component with specified period, number of Fourier
+        components, and prior scale.
+
+        Increasing the number of Fourier components allows the seasonality to
+        change more quickly (at risk of overfitting). Default values for yearly
+        and weekly seasonalities are 10 and 3 respectively.
+        Increasing prior scale will allow this seasonality component more
+        flexibility, decreasing will dampen it. If not provided, will use the
+        seasonality_prior_scale provided on Prophet initialization (defaults
+        to 10).
+
+        Mode can be specified as either 'additive' or 'multiplicative'. If not
+        specified, self.seasonality_mode will be used (defaults to additive).
+        Additive means the seasonality will be added to the trend,
+        multiplicative means it will multiply the trend.
+
+        Parameters
+        ----------
+        name: string name of the seasonality component.
+        period: float number of days in one period.
+        fourier_order: int number of Fourier components to use.
+        prior_scale: optional float prior scale for this component.
+        mode: optional 'additive' or 'multiplicative'
+
+        Returns
+        -------
+        The PMProphet object.
+        """
         self.seasonality.extend(['f_%s_%s' % (seasonality, order_idx) for order_idx in range(order)])
         fourier_series = PMProphet.fourier_series(
             pd.to_datetime(self.data['ds']), seasonality, order
@@ -61,16 +114,44 @@ class PMProphet:
         for order_idx in range(order):
             self.data['f_%s_%s' % (seasonality, order_idx)] = fourier_series[:, order_idx]
 
+        return self
+
     def add_holiday(self, name, date_start, date_end):
+        """Add holiday features
+        
+        Parameters
+        ----------
+        name: string name of the holiday component.
+        date_start :
+        date_end :
+
+        Returns
+        -------
+        The PMProphet object.
+        """
         self.data[name] = ((self.data.ds > date_start) & (self.data.ds < date_end)).astype(int) * self.data['y'].mean()
         self.holidays.append(name)
+        return self
 
     def add_regressor(self, name, regressor=None):
+        """Add an additional regressor to be used for fitting and predicting.
+
+        Parameters
+        ----------
+        name: string name of the regressor.
+        regressor : 
+
+        Returns
+        -------
+        The PMProphet object.
+        """
         self.regressors.append(name)
         if regressor:
             self.data[name] = regressor
+        return self
 
     def generate_priors(self):
+        """Set up the priors for the model."""
         with self.model:
             if 'sigma' not in self.priors:
                 self.priors['sigma'] = pm.HalfCauchy('sigma_%s' % self.name, 10, testval=1.)
@@ -84,21 +165,22 @@ class PMProphet:
                                                       shape=len(self.regressors))
             if self.growth and 'growth' not in self.priors:
                 self.priors['growth'] = pm.Normal('growth_%s' % self.name, 0, 0.5)
-            if self.growth and 'change_points' not in self.priors and len(self.change_points):
-                self.priors['change_points'] = pm.Laplace('change_points_%s' % self.name, 0, 0.5,
-                                                          shape=len(self.change_points))
+            if self.growth and 'changepoints' not in self.priors and len(self.changepoints):
+                self.priors['changepoints'] = pm.Laplace('changepoints_%s' % self.name, 0, 0.5,
+                                                          shape=len(self.changepoints))
             if self.intercept and 'intercept' not in self.priors:
                 self.priors['intercept'] = pm.Normal('intercept_%s' % self.name, self.data['y'].mean(),
                                                      self.data['y'].std() * 2, testval=1.0)
 
     def fit_growth(self, prior=True):
-        s = [self.data.ix[(self.data['ds'] - i).abs().argsort()[:1]].index[0] for i in self.change_points]
+        """Fit the growth component."""
+        s = [self.data.ix[(self.data['ds'] - i).abs().argsort()[:1]].index[0] for i in self.changepoints]
         g = self.priors['growth'] if prior else self.trace['growth_%s' % self.name]
 
         x = np.arange(len(self.data)) if prior else np.array([np.arange(len(self.data))] * len(g)).T
 
         def d(i):
-            return self.priors['change_points'][i] if prior else self.trace['change_points_%s' % self.name][:, i]
+            return self.priors['changepoints'][i] if prior else self.trace['changepoints_%s' % self.name][:, i]
 
         output = x * g
         if s:
@@ -149,6 +231,7 @@ class PMProphet:
         self.y = y + regressors + holidays + seasonality
 
     def finalize_model(self):
+        """Finalize the model."""
         self._prepare_fit()
         with self.model:
             pm.Normal(
@@ -160,6 +243,25 @@ class PMProphet:
             pm.Deterministic('y_hat_%s' % self.name, self.y)
 
     def fit(self, draws=500, method='NUTS', map_initialization=False, finalize=True, step_kwargs={}, sample_kwargs={}):
+        """Fit the PMProphet model.
+
+        Parameters
+        ----------
+        draws : Integer, if greater than 0, will do full Bayesian inference
+            with the specified number of MCMC samples. If 0, will do MAP
+            estimation.
+        method : 'NUTS' or 'Metropolis'
+        map_initialization : Initialize the model with maximum a posteriori
+            estimates.
+        finalize : Finalize the model.
+        step_kwargs : Additional arguments for the sampling algorithms
+            (`NUTS` or `Metropolis`).
+        sample_kwargs : Additional arguments for the PyMC3 `sample` function.
+
+        Returns
+        -------
+        The fitted PMProphet object.
+        """
         if finalize:
             self.finalize_model()
 
@@ -178,10 +280,25 @@ class PMProphet:
                 else:
                     res = pm.fit(draws, start=self.start if map_initialization else None)
                     self.trace = res.sample(10 ** 4)
-                return self.trace
-            return self.start
+        
+        return self
 
     def predict(self, forecasting_periods=10, freq='D', extra_data=None, include_history=True, alpha=0.05, plot=False):
+        """Predict using the prophet model.
+
+        Parameters
+        ----------
+        forecasting_periods :
+        freq :
+        extra_data :
+        include_history : If True, predictions are concatenated to the data.
+        alpha : Width of the the credible intervals.
+        plot : Plot the predictions.
+
+        Returns
+        -------
+        A pd.DataFrame with the forecast components.
+        """
         last_date = self.data['ds'].max()
         dates = pd.date_range(
             start=last_date,
@@ -212,7 +329,7 @@ class PMProphet:
             name=self.name
         )
 
-        m.change_points = self.change_points
+        m.changepoints = self.changepoints
 
         periods = {}
         for column in self.data.columns:
@@ -260,7 +377,7 @@ class PMProphet:
             )
 
             ddf.plot('ds', 'orig_y', style='k.', ax=plt.gca(), alpha=.2)
-            for change_point in m.change_points:
+            for change_point in m.changepoints:
                 plt.axvline(change_point, color='C2', lw=1, ls='dashed')
             plt.axvline(pd.to_datetime(self.data.ds).max(), color='C3', lw=1, ls='dotted')
             plt.show()
@@ -282,8 +399,27 @@ class PMProphet:
         ddf.loc[:, 'ds'] = pd.to_datetime(ddf['ds'])
         return ddf
 
-    def plot_components(self, seasonality=True, growth=True, regressors=True, intercept=True, change_points=True,
+    def plot_components(self, seasonality=True, growth=True, regressors=True, intercept=True, changepoints=True,
                         plt_kwargs={}, alpha=0.05):
+        """Plot the Prophet forecast components.
+
+        Will plot whichever are available of: trend, holidays, weekly
+        seasonality, and yearly seasonality.
+
+        Parameters
+        ----------
+        seasonality : Plot seasonality components if feasible.
+        growth : Plot growth component if feasible.
+        regressors : Plot regressors if feasible.
+        intercept : Plot intercept if feasible.
+        changepoints : Plot changepoints if feasible.
+        plt_kwargs : Additional arguments passed to plotting functions.
+        alpha : Width of the the credible intervals.
+
+        Returns
+        -------
+        A matplotlib figure.
+        """
         if not plt_kwargs:
             plt_kwargs = {'figsize': (20, 10)}
 
@@ -295,8 +431,8 @@ class PMProphet:
             self._plot_intercept(alpha, plt_kwargs)
         if regressors and self.regressors:
             self._plot_regressors(alpha, plt_kwargs)
-        if change_points and len(self.change_points):
-            self._plot_change_points(alpha, plt_kwargs)
+        if changepoints and len(self.changepoints):
+            self._plot_changepoints(alpha, plt_kwargs)
 
     def _plot_growth(self, alpha, plot_kwargs):
         ddf = self.make_trend(alpha)
@@ -313,7 +449,7 @@ class PMProphet:
             ddf['growth_high'].values.astype(float),
             alpha=.3
         )
-        for change_point in self.change_points:
+        for change_point in self.changepoints:
             plt.axvline(change_point, color='C2', lw=1, ls='dashed')
         plt.grid()
         plt.show()
@@ -358,9 +494,9 @@ class PMProphet:
                 idx += 1
         return ts.sum(axis=0) if flatten_components else ts
 
-    def _plot_change_points(self, alpha, plot_kwargs):
+    def _plot_changepoints(self, alpha, plot_kwargs):
         plt.figure(**plot_kwargs)
-        pm.forestplot(self.trace, varnames=['change_points_%s' % self.name], ylabels=self.change_points.astype(str))
+        pm.forestplot(self.trace, varnames=['changepoints_%s' % self.name], ylabels=self.changepoints.astype(str))
         plt.grid()
         plt.title("Growth Change Points")
         plt.show()
