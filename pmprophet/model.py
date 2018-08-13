@@ -20,11 +20,11 @@ class PMProphet:
     model : PyMC3 model.
         Initialize with a model.
     name : string
-        Name of the model.
+        Name of the model. Needed for to generate the theano/pymc3 variables.
     changepoints : list
         List of dates at which to include potential changepoints.
     n_changepoints : int
-        Number of potential changepoints to include.
+        Number of potential changepoints to include. Either specify this of `changepoints`.
     """
     def __init__(self, data, growth=False, intercept=True, model=None, name=None, changepoints=[], n_changepoints=0):
         self.data = data.copy()
@@ -93,9 +93,10 @@ class PMProphet:
 
         Parameters
         ----------
-        seasonality :
+        seasonality : int
+            Period lenght in day for the seasonality (e.g. 7 for weekly, 30 for daily..)
         fourier_order : int
-            Number of Fourier components to use.
+            Number of Fourier components to use. Minimum is 2.
 
         Returns
         -------
@@ -117,8 +118,10 @@ class PMProphet:
         ----------
         name : string
             Name of the holiday component.
-        date_start :
-        date_end :
+        date_start : datetime
+            Datetime from which the holiday begins
+        date_end : datetime
+            Datetime to which the holiday ends
 
         Returns
         -------
@@ -135,7 +138,8 @@ class PMProphet:
         ----------
         name : string
             Name of the regressor.
-        regressor : 
+        regressor : np.array, default: None
+            optionally pass an array of values to be copied in the model data
 
         Returns
         -------
@@ -168,7 +172,7 @@ class PMProphet:
                 self.priors['intercept'] = pm.Normal('intercept_%s' % self.name, self.data['y'].mean(),
                                                      self.data['y'].std() * 2, testval=1.0)
 
-    def fit_growth(self, prior=True):
+    def _fit_growth(self, prior=True):
         """Fit the growth component."""
         s = [self.data.ix[(self.data['ds'] - i).abs().argsort()[:1]].index[0] for i in self.changepoints]
         g = self.priors['growth'] if prior else self.trace['growth_%s' % self.name]
@@ -202,7 +206,7 @@ class PMProphet:
             y += self.priors['intercept']
 
         if self.growth:
-            y += self.fit_growth()
+            y += self._fit_growth()
 
         regressors = np.zeros(len(self.data))
         for idx, regressor in enumerate(self.regressors):
@@ -286,7 +290,8 @@ class PMProphet:
 
         Parameters
         ----------
-        forecasting_periods :
+        forecasting_periods : int, > 0
+            Number of future points to forecast
         freq : string, default: 'D'
         extra_data : pd.DataFrame
         include_history : bool
@@ -346,10 +351,10 @@ class PMProphet:
         m.trace = self.trace
 
         # Start with the trend
-        y_hat = m.fit_growth(prior=False)
+        y_hat = m._fit_growth(prior=False)
 
         # Add seasonality
-        y_hat += m.fit_seasonality(flatten_components=True)
+        y_hat += m._fit_seasonality(flatten_components=True)
 
         # Add intercept
         y_hat += self.trace['intercept_%s' % self.name]
@@ -386,7 +391,16 @@ class PMProphet:
         return ddf
 
     def make_trend(self, alpha):
-        fitted_growth = self.fit_growth(prior=False)
+        """
+        Generates the trend component for the model
+        :param alpha: float
+            Width of the the credible intervals.
+
+        Returns
+        -------
+        A pd.DataFrame with the trend components and confidence intervals.
+        """
+        fitted_growth = self._fit_growth(prior=False)
         ddf = pd.DataFrame(
             [
                 self.data['ds'].astype(str),
@@ -444,7 +458,7 @@ class PMProphet:
 
     def _plot_growth(self, alpha, plot_kwargs):
         ddf = self.make_trend(alpha)
-        g = self.fit_growth(prior=False)
+        g = self._fit_growth(prior=False)
         ddf['growth_mid'] = np.percentile(g, 50, axis=-1)
         ddf['growth_low'] = np.percentile(g, 98, axis=-1)
         ddf['growth_high'] = np.percentile(g, 2, axis=-1)
@@ -490,7 +504,7 @@ class PMProphet:
         pm.forestplot(self.trace, varnames=['regressors_%s' % self.name], ylabels=self.regressors)
         plt.show()
 
-    def fit_seasonality(self, flatten_components=False):
+    def _fit_seasonality(self, flatten_components=False):
         periods = list(set([float(i.split("_")[1]) for i in self.seasonality]))
         idx = 0
         ts = np.zeros((len(periods), len(self.data), self.trace['seasonality_%s' % self.name].shape[0]))
@@ -511,7 +525,7 @@ class PMProphet:
 
     def _plot_seasonality(self, alpha, plot_kwargs):
         periods = list(set([float(i.split("_")[1]) for i in self.seasonality]))
-        ts = self.fit_seasonality()
+        ts = self._fit_seasonality()
         ddf = pd.DataFrame(
             np.vstack([
                 np.percentile(ts, 50, axis=-1),
