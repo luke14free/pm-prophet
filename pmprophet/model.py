@@ -243,9 +243,8 @@ class PMProphet:
 
         Parameters
         ----------
-        draws : int
-            If greater than 0, will do full Bayesian inference with the
-            specified number of MCMC samples. If 0, will do MAP estimation.
+        draws : int, > 0
+            The number of MCMC samples.
         method : 'NUTS' or 'Metropolis'.
         map_initialization : bool
             Initialize the model with maximum a posteriori estimates.
@@ -283,7 +282,7 @@ class PMProphet:
         return self
 
     def predict(self, forecasting_periods=10, freq='D', extra_data=None, include_history=True, alpha=0.05, plot=False):
-        """Predict using the prophet model.
+        """Predict using the PMProphet model.
 
         Parameters
         ----------
@@ -403,7 +402,7 @@ class PMProphet:
 
     def plot_components(self, seasonality=True, growth=True, regressors=True, intercept=True, changepoints=True,
                         plt_kwargs={}, alpha=0.05):
-        """Plot the Prophet forecast components.
+        """Plot the PMProphet forecast components.
 
         Will plot whichever are available of: trend, holidays, weekly
         seasonality, and yearly seasonality.
