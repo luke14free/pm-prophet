@@ -6,3 +6,6 @@ venv
 *.pyc
 *.o
 *.egg-info
+build/
+dist/
+.DS_Store
