@@ -26,7 +26,7 @@ What's not yet implemented w.r.t. [Facebook Prophet](https://facebook.github.io/
 Predicting the Peyton Manning timeseries:    
 ```python
 import pandas as pd
-from PMProphet.model import PMProphet
+from pmprophet.model import PMProphet
 
 df = pd.read_csv("examples/example_wp_log_peyton_manning.csv")
 df = df.head(180) # Only keep the first 180 days of data
