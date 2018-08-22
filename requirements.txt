@@ -1,3 +1,4 @@
+theano
 matplotlib
 numpy
 pandas>=0.23.0

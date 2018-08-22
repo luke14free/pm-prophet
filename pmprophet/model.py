@@ -4,6 +4,8 @@ import matplotlib.pylab as plt
 import numpy as np
 import pandas as pd
 import pymc3 as pm
+import theano
+import theano.tensor as T
 
 
 class PMProphet:
@@ -25,8 +27,22 @@ class PMProphet:
         List of dates at which to include potential changepoints.
     n_changepoints : int
         Number of potential changepoints to include. Either specify this of `changepoints`.
+    changepoints_prior_scale : float, default: 0.05
+        Parameter modulating the flexibility of the
+        automatic changepoint selection. Large values will allow many
+        changepoints, small values will allow few changepoints.
+    holidays_prior_scale : float, default: 10.0
+        Parameter modulating the strength of the holiday
+        components model, unless overridden in the holidays input.
+    seasonality_prior_scale : float, default: 10.0
+        Parameter modulating the strength of the
+        seasonality model. Larger values allow the model to fit larger seasonal
+        fluctuations, smaller values dampen the seasonality. Can be specified
+        for individual seasonalities using add_seasonality.
     """
-    def __init__(self, data, growth=False, intercept=True, model=None, name=None, changepoints=[], n_changepoints=0):
+
+    def __init__(self, data, growth=False, intercept=True, model=None, name=None, changepoints=[], n_changepoints=0,
+                 changepoints_prior_scale=0.05, holidays_prior_scale=10.0, seasonality_prior_scale=10.0):
         self.data = data.copy()
         self.data['ds'] = pd.to_datetime(arg=self.data['ds'])
         self.data.index = range(len(self.data))
@@ -41,6 +57,9 @@ class PMProphet:
         self.trace = {}
         self.start = {}
         self.changepoints = pd.DatetimeIndex(changepoints)
+        self.changepoints_prior_scale = changepoints_prior_scale
+        self.holidays_prior_scale = holidays_prior_scale
+        self.seasonality_prior_scale = seasonality_prior_scale
         self.name = name
 
         if changepoints and n_changepoints:
@@ -113,7 +132,7 @@ class PMProphet:
 
     def add_holiday(self, name, date_start, date_end):
         """Add holiday features
-        
+
         Parameters
         ----------
         name : string
@@ -156,18 +175,20 @@ class PMProphet:
             if 'sigma' not in self.priors:
                 self.priors['sigma'] = pm.HalfCauchy('sigma_%s' % self.name, 10, testval=1.)
             if 'seasonality' not in self.priors and self.seasonality:
-                self.priors['seasonality'] = pm.Laplace('seasonality_%s' % self.name, 0, 10,
+                self.priors['seasonality'] = pm.Laplace('seasonality_%s' % self.name, 0, self.seasonality_prior_scale,
                                                         shape=len(self.seasonality))
             if 'holidays' not in self.priors and self.holidays:
-                self.priors['holidays'] = pm.Laplace('holidays_%s' % self.name, 0, 10, shape=len(self.holidays))
+                self.priors['holidays'] = pm.Laplace('holidays_%s' % self.name, 0, self.holidays_prior_scale,
+                                                     shape=len(self.holidays))
             if 'regressors' not in self.priors and self.regressors:
                 self.priors['regressors'] = pm.Normal('regressors_%s' % self.name, 0, 10,
                                                       shape=len(self.regressors))
             if self.growth and 'growth' not in self.priors:
-                self.priors['growth'] = pm.Normal('growth_%s' % self.name, 0, 0.5)
+                self.priors['growth'] = pm.Normal('growth_%s' % self.name, 0, 10)
             if self.growth and 'changepoints' not in self.priors and len(self.changepoints):
-                self.priors['changepoints'] = pm.Laplace('changepoints_%s' % self.name, 0, 0.5,
-                                                          shape=len(self.changepoints))
+                self.priors['changepoints'] = pm.Laplace('changepoints_%s' % self.name, 0,
+                                                         self.changepoints_prior_scale,
+                                                         shape=len(self.changepoints))
             if self.intercept and 'intercept' not in self.priors:
                 self.priors['intercept'] = pm.Normal('intercept_%s' % self.name, self.data['y'].mean(),
                                                      self.data['y'].std() * 2, testval=1.0)
@@ -179,24 +200,28 @@ class PMProphet:
 
         x = np.arange(len(self.data)) if prior else np.array([np.arange(len(self.data))] * len(g)).T
 
-        def d(i):
-            return self.priors['changepoints'][i] if prior else self.trace['changepoints_%s' % self.name][:, i]
+        d = self.priors['changepoints'] if prior else [
+            self.trace['changepoints_%s' % self.name][:, i] for i in range(len(s))]
 
-        output = x * g
+        regression = x * g
+
         if s:
-            output = []
-            for i in range(len(s) + 1):
-                local_growth = (g + d(i - 1) if i else 0)
-                local_x = (x - s[i - 1] if i else 0)
-                local_cond = (x > s[i - 1] if i else 0)
-                local_regression = local_growth * local_x * local_cond
-                if local_regression is 0 and not prior:
-                    output.append(np.zeros(x.shape[1]))
-                else:
-                    output.append(local_regression)
-            output = np.sum(output, axis=0)
+            base_piecewise_regression = []
 
-        return output
+            for i in s:
+                local_x = x.copy()[:-i]
+                local_x = np.concatenate([np.zeros(i) if prior else np.zeros((i, local_x.shape[1])), local_x])
+                base_piecewise_regression.append(local_x)
+
+            piecewise_regression = np.array(base_piecewise_regression)
+            if not prior:
+                d = np.array(d)
+                piecewise_regression = np.sum([piecewise_regression[i] * d[i] for i in range(len(s))], axis=0)
+            else:
+                piecewise_regression = (piecewise_regression.T * d.dimshuffle('x', 0)).sum(axis=-1)
+            regression += piecewise_regression
+
+        return regression
 
     def _prepare_fit(self):
         self.generate_priors()
@@ -282,7 +307,7 @@ class PMProphet:
                 else:
                     res = pm.fit(draws, start=self.start if map_initialization else None)
                     self.trace = res.sample(10 ** 4)
-        
+
         return self
 
     def predict(self, forecasting_periods=10, freq='D', extra_data=None, include_history=True, alpha=0.05, plot=False):
@@ -459,7 +484,7 @@ class PMProphet:
     def _plot_growth(self, alpha, plot_kwargs):
         ddf = self.make_trend(alpha)
         g = self._fit_growth(prior=False)
-        ddf['growth_mid'] = np.percentile(g, 50, axis=-1)
+        ddf['growth_mid'] = np.mean(g, axis=-1)
         ddf['growth_low'] = np.percentile(g, 98, axis=-1)
         ddf['growth_high'] = np.percentile(g, 2, axis=-1)
         plt.figure(**plot_kwargs)
@@ -480,7 +505,6 @@ class PMProphet:
         plt.figure(**plot_kwargs)
         pm.forestplot(self.trace, varnames=['intercept_%s' % self.name], ylabels="Intercept")
         plt.show()
-
 
     @staticmethod
     def _plot_model(ddf, plot_kwargs):
