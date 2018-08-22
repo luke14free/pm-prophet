@@ -9,7 +9,7 @@ REQUIRED_PACKAGES = [
 ]
 
 setup(name='pmprophet',
-      version='0.1.1',
+      version='0.1.2',
       description='Simplified version of the Facebook Prophet model re-implemented in PyMC3 ',
       url='https://github.com/luke14free/pm-prophet',
       author='Luca Giacomel',

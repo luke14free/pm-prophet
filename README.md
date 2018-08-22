@@ -23,7 +23,7 @@ What's not yet implemented w.r.t. [Facebook Prophet](https://facebook.github.io/
 * Timeseries with non daily frequencies are untested (thus unlikely to work)
 * (potentially other things)
 
-Predicting the Peyton Manning timeseries:    
+Predicting the Peyton Manning timeseries:
 ```python
 import pandas as pd
 from pmprophet.model import PMProphet
