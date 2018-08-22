@@ -489,7 +489,7 @@ class PMProphet:
         ddf['growth_high'] = np.percentile(g, 2, axis=-1)
         plt.figure(**plot_kwargs)
         ddf.plot(x='ds', y='growth_mid', ax=plt.gca())
-        plt.title("Model Growth")
+        plt.title("Model Trend")
         plt.fill_between(
             ddf['ds'].values,
             ddf['growth_low'].values.astype(float),
@@ -526,6 +526,7 @@ class PMProphet:
     def _plot_regressors(self, alpha, plot_kwargs):
         plt.figure(**plot_kwargs)
         pm.forestplot(self.trace, varnames=['regressors_%s' % self.name], ylabels=self.regressors)
+        plt.grid()
         plt.show()
 
     def _fit_seasonality(self, flatten_components=False):

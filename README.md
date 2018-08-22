@@ -28,26 +28,22 @@ Predicting the Peyton Manning timeseries:
 import pandas as pd
 from pmprophet.model import PMProphet
 
-df = pd.read_csv("examples/example_wp_log_peyton_manning.csv")
-df = df.head(180) # Only keep the first 180 days of data
+df = pd.read_csv("/Users/luca/pm-prophet/examples/example_wp_log_peyton_manning.csv")
+df = df.head(180)
 
 # Fit both growth and intercept
-m = PMProphet(df, growth=True, intercept=True, n_change_points=2, name='model')
+m = PMProphet(df, growth=True, intercept=True, n_changepoints=25, changepoints_prior_scale=.01, name='model')
 
 # Add monthly seasonality (order: 3)
-m.add_seasonality(seasonality=30, order=3)
+m.add_seasonality(seasonality=30, fourier_order=3)
 
 # Add weekly seasonality (order: 3)
-m.add_seasonality(seasonality=7, order=3)
+m.add_seasonality(seasonality=7, fourier_order=3)
 
-# Fit the model (using NUTS, 1e+4 samples and no MAP init)
-m.fit(
-    draws=10**4,
-    method='NUTS',
-    map_initialization=False,
-)
+# Fit the model (using NUTS)
+m.fit(method='NUTS')
 
-ddf = m.predict(100, alpha=0.4, include_history=True, plot=True)
+ddf = m.predict(60, alpha=0.2, include_history=True, plot=True)
 m.plot_components(
     intercept=False,
 )
@@ -68,7 +64,7 @@ Variable | Prior | Parameters
 --- | --- | --- 
 `regressors` | Normal | loc:0, scale:10 
 `holidays` | Laplace | loc:0, scale:10 
-`seasonality` | Laplace | loc:0, scale:1 
+`seasonality` | Laplace | loc:0, scale:0.05
 `growth` | Laplace | loc:0, scale:10 
 `changepoints` | Laplace | loc:0, scale:10 
 `intercept` | Normal | loc:`y.mean`, scale: `2 * y.std`
@@ -105,7 +101,7 @@ df['ds'] = pd.date_range('2017-01-01', periods=n_timesteps)
 for idx, regressor in enumerate(regressors_names):
     df[regressor] = regressors[:, idx]
 
-m = PMProphet(df, growth=False, intercept=False, n_change_points=0, name='model')
+m = PMProphet(df, growth=False, intercept=False, n_changepoints=0, name='model')
 
 with m.model:
     # Remember to suffix _<model-name> to the custom priors
