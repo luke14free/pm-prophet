@@ -25,7 +25,7 @@ class PMProphet:
         Name of the model. Needed for to generate the theano/pymc3 variables.
     changepoints : list
         List of dates at which to include potential changepoints.
-    n_changepoints : int
+    n_changepoints : int, default: 25
         Number of potential changepoints to include. Either specify this of `changepoints`.
     changepoints_prior_scale : float, default: 0.05
         Parameter modulating the flexibility of the
@@ -37,12 +37,19 @@ class PMProphet:
     seasonality_prior_scale : float, default: 10.0
         Parameter modulating the strength of the
         seasonality model. Larger values allow the model to fit larger seasonal
-        fluctuations, smaller values dampen the seasonality. Can be specified
-        for individual seasonalities using add_seasonality.
+        fluctuations, smaller values dampen the seasonality.
+    regressors_prior_scale : float, default: 10.0
+        Parameter modulating the strength of the
+        regressors model. Larger values allow the model to fit larger regressors
+        fluctuations, smaller values dampen the regressors.
+    positive_regressors_coefficients : bool, default: False
+        Parameter forcing the regressors coefficients be positive (i.e. sampled
+        from an Exponential instead than from a Laplacian).
     """
 
-    def __init__(self, data, growth=False, intercept=True, model=None, name=None, changepoints=[], n_changepoints=0,
-                 changepoints_prior_scale=0.05, holidays_prior_scale=10.0, seasonality_prior_scale=10.0):
+    def __init__(self, data, growth=False, intercept=True, model=None, name=None, changepoints=[], n_changepoints=25,
+                 changepoints_prior_scale=0.05, holidays_prior_scale=10.0, seasonality_prior_scale=10.0,
+                 regressors_prior_scale=2.5, positive_regressors_coefficients=False):
         self.data = data.copy()
         self.data['ds'] = pd.to_datetime(arg=self.data['ds'])
         self.data.index = range(len(self.data))
@@ -56,10 +63,13 @@ class PMProphet:
         self.params = {}
         self.trace = {}
         self.start = {}
+        self.priors_names = {}
         self.changepoints = pd.DatetimeIndex(changepoints)
         self.changepoints_prior_scale = changepoints_prior_scale
         self.holidays_prior_scale = holidays_prior_scale
         self.seasonality_prior_scale = seasonality_prior_scale
+        self.regressors_prior_scale = regressors_prior_scale
+        self.positive_regressors_coefficients = positive_regressors_coefficients
         self.name = name
 
         if changepoints and n_changepoints:
@@ -174,6 +184,7 @@ class PMProphet:
         with self.model:
             if 'sigma' not in self.priors:
                 self.priors['sigma'] = pm.HalfCauchy('sigma_%s' % self.name, 10, testval=1.)
+
             if 'seasonality' not in self.priors and self.seasonality:
                 self.priors['seasonality'] = pm.Laplace('seasonality_%s' % self.name, 0, self.seasonality_prior_scale,
                                                         shape=len(self.seasonality))
@@ -181,8 +192,12 @@ class PMProphet:
                 self.priors['holidays'] = pm.Laplace('holidays_%s' % self.name, 0, self.holidays_prior_scale,
                                                      shape=len(self.holidays))
             if 'regressors' not in self.priors and self.regressors:
-                self.priors['regressors'] = pm.Normal('regressors_%s' % self.name, 0, 10,
-                                                      shape=len(self.regressors))
+                if self.positive_regressors_coefficients:
+                    self.priors['regressors'] = pm.HalfNormal('regressors_%s' % self.name, self.regressors_prior_scale,
+                                                              shape=len(self.regressors))
+                else:
+                    self.priors['regressors'] = pm.Normal('regressors_%s' % self.name, 0, self.regressors_prior_scale,
+                                                          shape=len(self.regressors))
             if self.growth and 'growth' not in self.priors:
                 self.priors['growth'] = pm.Normal('growth_%s' % self.name, 0, 10)
             if self.growth and 'changepoints' not in self.priors and len(self.changepoints):
@@ -193,15 +208,17 @@ class PMProphet:
                 self.priors['intercept'] = pm.Normal('intercept_%s' % self.name, self.data['y'].mean(),
                                                      self.data['y'].std() * 2, testval=1.0)
 
+        self.priors_names = {k: v.name for k, v in self.priors.items()}
+
     def _fit_growth(self, prior=True):
         """Fit the growth component."""
         s = [self.data.ix[(self.data['ds'] - i).abs().argsort()[:1]].index[0] for i in self.changepoints]
-        g = self.priors['growth'] if prior else self.trace['growth_%s' % self.name]
+        g = self.priors['growth'] if prior else self.trace[self.priors_names['growth']]
 
         x = np.arange(len(self.data)) if prior else np.array([np.arange(len(self.data))] * len(g)).T
 
         d = self.priors['changepoints'] if prior else [
-            self.trace['changepoints_%s' % self.name][:, i] for i in range(len(s))]
+            self.trace[self.priors_names['changepoints']][:, i] for i in range(len(s))]
 
         regression = x * g
 
@@ -243,7 +260,8 @@ class PMProphet:
         seasonality = np.zeros(len(self.data))
         for idx, seasonal_component in enumerate(self.seasonality):
             seasonality += self.data[seasonal_component].values * self.priors['seasonality'][idx]
-        # seasonality *= self.data['y'].mean()
+
+        seasonality *= self.data.y.max()
 
         with self.model:
             if self.seasonality:
@@ -295,6 +313,8 @@ class PMProphet:
         with self.model:
             if map_initialization:
                 self.start = pm.find_MAP(maxeval=10000)
+                if draws == 0:
+                    self.trace = {k: np.array([v]) for k, v in self.start.items()}
 
             if draws:
                 if method == 'NUTS' or method == 'Metropolis':
@@ -347,6 +367,9 @@ class PMProphet:
             new_df['y'] = np.zeros(forecasting_periods)
             new_df['ds'] = dates
 
+        for regressor in self.regressors:
+            new_df[regressor] = self.data[regressor]
+
         if extra_data is not None:
             for column in extra_data.columns:
                 if column not in ['y', 'ds']:
@@ -370,21 +393,38 @@ class PMProphet:
                 periods[period].append(int(order))
 
         for period, orders in periods.items():
-            m.add_seasonality(seasonality=float(period), fourier_order=max(orders) + 1)
+            m.add_seasonality(seasonality=int(period), fourier_order=max(orders) + 1)
 
         m.priors = self.priors
+        m.priors_names = self.priors_names
         m.trace = self.trace
 
-        # Start with the trend
-        y_hat = m._fit_growth(prior=False)
+        if self.growth:
+            # Start with the trend
+            y_hat = m._fit_growth(prior=False)
+        else:
+            draws = max(self.trace[var].shape[-1] for var in self.trace.varnames)
+            y_hat = np.zeros((len(m.data.ds.values), draws))
 
-        # Add seasonality
-        y_hat += m._fit_seasonality(flatten_components=True)
+        if self.seasonality:
+            # Add seasonality
+            y_hat += m._fit_seasonality(flatten_components=True) * (self.data.y.max() if self.intercept else 1)
 
-        # Add intercept
-        y_hat += self.trace['intercept_%s' % self.name]
+        if self.intercept:
+            # Add intercept
+            y_hat += self.trace[self.priors_names['intercept']]
 
-        y_hat_noised = y_hat + np.random.normal(0, self.trace['sigma_%s' % self.name])
+        # Add regressors
+        for idx, regressor in enumerate(self.regressors):
+            trace = m.trace[m.priors_names['regressors']][:, idx]
+            y_hat += trace * np.repeat([m.data[regressor]], len(trace)).reshape(len(m.data), len(trace))
+
+        # Add holidays
+        for idx, holiday in enumerate(self.holidays):
+            trace = m.trace[m.priors_names['holidays']][:, idx]
+            y_hat += trace * np.repeat([m.data[holiday]], len(trace)).reshape(len(m.data), len(trace))
+
+        y_hat_noised = y_hat + np.random.normal(0, self.trace[self.priors_names['sigma']])
 
         ddf = pd.DataFrame(
             [
@@ -393,6 +433,7 @@ class PMProphet:
                 np.percentile(y_hat_noised, math.floor(100 * alpha / 2), axis=-1),
             ]
         ).T
+
         ddf['ds'] = m.data['ds']
         ddf.columns = ['y_hat', 'y_high', 'y_low', 'ds']
 
@@ -440,7 +481,7 @@ class PMProphet:
         return ddf
 
     def plot_components(self, seasonality=True, growth=True, regressors=True, intercept=True, changepoints=True,
-                        plt_kwargs={}, alpha=0.05):
+                        holidays=True, plt_kwargs={}, alpha=0.05):
         """Plot the PMProphet forecast components.
 
         Will plot whichever are available of: trend, holidays, weekly
@@ -478,8 +519,10 @@ class PMProphet:
             self._plot_intercept(alpha, plt_kwargs)
         if regressors and self.regressors:
             self._plot_regressors(alpha, plt_kwargs)
-        if changepoints and len(self.changepoints):
+        if changepoints and len(self.changepoints) and self.growth:
             self._plot_changepoints(alpha, plt_kwargs)
+        if holidays and self.holidays:
+            self._plot_holidays(alpha, plt_kwargs)
 
     def _plot_growth(self, alpha, plot_kwargs):
         ddf = self.make_trend(alpha)
@@ -503,7 +546,7 @@ class PMProphet:
 
     def _plot_intercept(self, alpha, plot_kwargs):
         plt.figure(**plot_kwargs)
-        pm.forestplot(self.trace, varnames=['intercept_%s' % self.name], ylabels="Intercept")
+        pm.forestplot(self.trace, alpha=alpha, varnames=[self.priors_names['intercept']], ylabels=["Intercept"])
         plt.show()
 
     @staticmethod
@@ -525,32 +568,38 @@ class PMProphet:
 
     def _plot_regressors(self, alpha, plot_kwargs):
         plt.figure(**plot_kwargs)
-        pm.forestplot(self.trace, varnames=['regressors_%s' % self.name], ylabels=self.regressors)
+        pm.forestplot(self.trace, varnames=[self.priors_names['regressors']], ylabels=self.regressors)
+        plt.grid()
+        plt.show()
+
+    def _plot_holidays(self, alpha, plot_kwargs):
+        plt.figure(**plot_kwargs)
+        pm.forestplot(self.trace, varnames=[self.priors_names['holidays']], ylabels=self.holidays)
         plt.grid()
         plt.show()
 
     def _fit_seasonality(self, flatten_components=False):
         periods = list(set([float(i.split("_")[1]) for i in self.seasonality]))
         idx = 0
-        ts = np.zeros((len(periods), len(self.data), self.trace['seasonality_%s' % self.name].shape[0]))
+        ts = np.zeros((len(periods), len(self.data), self.trace[self.priors_names['seasonality']].shape[0]))
         for pdx, period in enumerate(periods):
             cols = [i for i in self.seasonality if float(i.split("_")[1]) == period]
             for col in cols:
-                s_trace = self.trace['seasonality_%s' % self.name][:, idx]
+                s_trace = self.trace[self.priors_names['seasonality']][:, idx]
                 ts[pdx, :] += s_trace * np.repeat([self.data[col]], len(s_trace)).reshape(len(self.data), len(s_trace))
                 idx += 1
         return ts.sum(axis=0) if flatten_components else ts
 
     def _plot_changepoints(self, alpha, plot_kwargs):
         plt.figure(**plot_kwargs)
-        pm.forestplot(self.trace, varnames=['changepoints_%s' % self.name], ylabels=self.changepoints.astype(str))
+        pm.forestplot(self.trace, varnames=[self.priors_names['changepoints']], ylabels=self.changepoints.astype(str))
         plt.grid()
         plt.title("Growth Change Points")
         plt.show()
 
     def _plot_seasonality(self, alpha, plot_kwargs):
         periods = list(set([float(i.split("_")[1]) for i in self.seasonality]))
-        ts = self._fit_seasonality()
+        ts = self._fit_seasonality() * (self.data.y.max() if self.intercept else 1)
         ddf = pd.DataFrame(
             np.vstack([
                 np.percentile(ts, 50, axis=-1),
