@@ -206,7 +206,7 @@ class PMProphet:
                                                          shape=len(self.changepoints))
             if self.intercept and 'intercept' not in self.priors:
                 self.priors['intercept'] = pm.Normal('intercept_%s' % self.name, self.data['y'].mean(),
-                                                     self.data['y'].std() * 2, testval=1.0)
+                                                     self.data['y'].std() * 2)
 
         self.priors_names = {k: v.name for k, v in self.priors.items()}
 
@@ -217,12 +217,15 @@ class PMProphet:
 
         x = np.arange(len(self.data)) if prior else np.array([np.arange(len(self.data))] * len(g)).T
 
-        d = self.priors['changepoints'] if prior else [
-            self.trace[self.priors_names['changepoints']][:, i] for i in range(len(s))]
+        if len(self.changepoints):
+            d = self.priors['changepoints'] if prior else [
+                self.trace[self.priors_names['changepoints']][:, i] for i in range(len(s))]
+        else:
+            d = []
 
         regression = x * g
 
-        if s:
+        if s and d:
             base_piecewise_regression = []
 
             for i in s:
