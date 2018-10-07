@@ -645,7 +645,7 @@ class PMProphet:
 
     def _plot_intercept(self, alpha, plot_kwargs):
         plt.figure(**plot_kwargs)
-        pm.forestplot(self.trace, varnames=[self.priors_names['intercept']], alpha=alpha)
+        pm.forestplot(self.trace[self.skip_first//self.chains:], varnames=[self.priors_names['intercept']], alpha=alpha)
         plt.show()
 
     @staticmethod
@@ -667,13 +667,13 @@ class PMProphet:
 
     def _plot_regressors(self, alpha, plot_kwargs):
         plt.figure(**plot_kwargs)
-        pm.forestplot(self.trace, alpha=alpha, varnames=[self.priors_names['regressors']], ylabels=self.regressors)
+        pm.forestplot(self.trace[self.skip_first//self.chains:], alpha=alpha, varnames=[self.priors_names['regressors']], ylabels=self.regressors)
         plt.grid()
         plt.show()
 
     def _plot_holidays(self, alpha, plot_kwargs):
         plt.figure(**plot_kwargs)
-        pm.forestplot(self.trace, alpha=alpha, varnames=[self.priors_names['holidays']], ylabels=self.holidays)
+        pm.forestplot(self.trace[self.skip_first//self.chains:], alpha=alpha, varnames=[self.priors_names['holidays']], ylabels=self.holidays)
         plt.grid()
         plt.show()
 
@@ -702,7 +702,7 @@ class PMProphet:
 
     def _plot_changepoints(self, alpha, plot_kwargs):
         plt.figure(**plot_kwargs)
-        pm.forestplot(self.trace, alpha=alpha, varnames=[self.priors_names['changepoints']],
+        pm.forestplot(self.trace[self.skip_first//self.chains:], alpha=alpha, varnames=[self.priors_names['changepoints']],
                       ylabels=self.changepoints.astype(str))
         plt.grid()
         plt.title("Growth Change Points")

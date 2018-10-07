@@ -9,7 +9,7 @@ REQUIRED_PACKAGES = [
 ]
 
 setup(name='pmprophet',
-      version='0.1.5',
+      version='0.1.6',
       description='Pymc3-based universal time series prediction and decomposition library inspired by Facebook Prophet',
       url='https://github.com/luke14free/pm-prophet',
       author='Luca Giacomel',
