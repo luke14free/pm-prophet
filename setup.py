@@ -9,8 +9,8 @@ REQUIRED_PACKAGES = [
 ]
 
 setup(name='pmprophet',
-      version='0.1.4',
-      description='Simplified version of the Facebook Prophet model re-implemented in PyMC3 ',
+      version='0.1.5',
+      description='Pymc3-based universal time series prediction and decomposition library inspired by Facebook Prophet',
       url='https://github.com/luke14free/pm-prophet',
       author='Luca Giacomel',
       author_email='luca.giacomel@gmail.com',
