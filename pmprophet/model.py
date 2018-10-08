@@ -75,6 +75,7 @@ class PMProphet:
 
         if len(changepoints) > 0 and n_changepoints > 0:
             print("ignoring the `n_changepoints` parameter since a list of changepoints were passed")
+            n_changepoints = None
         if 'y' not in data.columns:
             raise Exception("Target variable should be called `y` in the `data` dataframe")
         if 'ds' not in data.columns:
@@ -201,7 +202,7 @@ class PMProphet:
         """Set up the priors for the model."""
         with self.model:
             if 'sigma' not in self.priors:
-                self.priors['sigma'] = pm.HalfCauchy('sigma_%s' % self.name, 1, testval=1.)
+                self.priors['sigma'] = pm.HalfCauchy('sigma_%s' % self.name, 10, testval=1.)
 
             if 'seasonality' not in self.priors and self.seasonality:
                 self.priors['seasonality'] = pm.Laplace('seasonality_%s' % self.name, 0, self.seasonality_prior_scale,
@@ -211,14 +212,14 @@ class PMProphet:
                                                      shape=len(self.holidays))
             if 'regressors' not in self.priors and self.regressors:
                 if self.positive_regressors_coefficients:
-                    self.priors['regressors'] = pm.HalfNormal('regressors_%s' % self.name, self.regressors_prior_scale,
-                                                              shape=len(self.regressors))
+                    self.priors['regressors'] = pm.Exponential('regressors_%s' % self.name, self.regressors_prior_scale,
+                                                               shape=len(self.regressors))
                 else:
-                    self.priors['regressors'] = pm.Normal('regressors_%s' % self.name, 0, self.regressors_prior_scale,
-                                                          shape=len(self.regressors))
+                    self.priors['regressors'] = pm.Laplace('regressors_%s' % self.name, 0, self.regressors_prior_scale,
+                                                           shape=len(self.regressors))
             if self.growth and 'growth' not in self.priors:
                 self.priors['growth'] = pm.Normal('growth_%s' % self.name, 0, 10)
-            if self.growth and 'changepoints' not in self.priors and len(self.changepoints):
+            if len(self.changepoints) and 'changepoints' not in self.priors and len(self.changepoints):
                 self.priors['changepoints'] = pm.Laplace('changepoints_%s' % self.name, 0,
                                                          self.changepoints_prior_scale,
                                                          shape=len(self.changepoints))
@@ -523,13 +524,16 @@ class PMProphet:
         y_hat *= multiplicative_term
         y_hat += additive_seasonality + additive_holidays + additive_regressors
 
-        y_hat_noised = y_hat + np.random.normal(0, self.trace[self.priors_names['sigma']])
+        y_hat_noised = (
+                y_hat[:, self.skip_first:] +
+                np.random.normal(0, self.trace[self.priors_names['sigma']][self.skip_first:])
+        )
 
         ddf = pd.DataFrame(
             [
-                np.percentile(y_hat[:, self.skip_first:], 50, axis=-1),
-                np.percentile(y_hat_noised[:, self.skip_first:], math.ceil(100 - (100 * alpha / 2)), axis=-1),
-                np.percentile(y_hat_noised[:, self.skip_first:], math.floor(100 * alpha / 2), axis=-1),
+                np.percentile(y_hat_noised, 50, axis=-1),
+                np.percentile(y_hat_noised, math.ceil(100 - (100 * alpha / 2)), axis=-1),
+                np.percentile(y_hat_noised, math.floor(100 * alpha / 2), axis=-1),
             ]
         ).T
 
@@ -645,7 +649,8 @@ class PMProphet:
 
     def _plot_intercept(self, alpha, plot_kwargs):
         plt.figure(**plot_kwargs)
-        pm.forestplot(self.trace[self.skip_first//self.chains:], varnames=[self.priors_names['intercept']], alpha=alpha)
+        pm.forestplot(self.trace[self.skip_first // self.chains:], varnames=[self.priors_names['intercept']],
+                      alpha=alpha)
         plt.show()
 
     @staticmethod
@@ -667,13 +672,15 @@ class PMProphet:
 
     def _plot_regressors(self, alpha, plot_kwargs):
         plt.figure(**plot_kwargs)
-        pm.forestplot(self.trace[self.skip_first//self.chains:], alpha=alpha, varnames=[self.priors_names['regressors']], ylabels=self.regressors)
+        pm.forestplot(self.trace[self.skip_first // self.chains:], alpha=alpha,
+                      varnames=[self.priors_names['regressors']], ylabels=self.regressors)
         plt.grid()
         plt.show()
 
     def _plot_holidays(self, alpha, plot_kwargs):
         plt.figure(**plot_kwargs)
-        pm.forestplot(self.trace[self.skip_first//self.chains:], alpha=alpha, varnames=[self.priors_names['holidays']], ylabels=self.holidays)
+        pm.forestplot(self.trace[self.skip_first // self.chains:], alpha=alpha,
+                      varnames=[self.priors_names['holidays']], ylabels=self.holidays)
         plt.grid()
         plt.show()
 
@@ -702,7 +709,8 @@ class PMProphet:
 
     def _plot_changepoints(self, alpha, plot_kwargs):
         plt.figure(**plot_kwargs)
-        pm.forestplot(self.trace[self.skip_first//self.chains:], alpha=alpha, varnames=[self.priors_names['changepoints']],
+        pm.forestplot(self.trace[self.skip_first // self.chains:], alpha=alpha,
+                      varnames=[self.priors_names['changepoints']],
                       ylabels=self.changepoints.astype(str))
         plt.grid()
         plt.title("Growth Change Points")
@@ -738,7 +746,12 @@ class PMProphet:
                     step = int(period)
                 graph = ddf.head(step)
                 if period == 7:
-                    graph.loc[:, 'ds'] = [str(i[:3]) for i in graph['ds'].dt.weekday_name]
+                    ddf.loc[:, 'dow'] = [i for i in ddf['ds'].dt.weekday]
+                    graph = ddf[['dow', '%s_low' % period, '%s_mid' % period, '%s_high' % period]].groupby(
+                        'dow').mean().sort_values('dow')
+                    graph.loc[:, 'ds'] = [['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]
+                                          for i in graph.index]
+                    graph = graph.sort_index()
                 plt.figure(**plot_kwargs)
                 graph.plot(
                     y="%s_mid" % period,
@@ -751,13 +764,19 @@ class PMProphet:
 
                 if period == 7:
                     plt.xticks(range(7), graph['ds'].values)
-
-                plt.fill_between(
-                    graph['ds'].values,
-                    graph["%s_low" % period].values.astype(float),
-                    graph["%s_high" % period].values.astype(float),
-                    alpha=.3,
-                )
+                    plt.fill_between(
+                        np.arange(0, 7),
+                        graph["%s_low" % period].values.astype(float),
+                        graph["%s_high" % period].values.astype(float),
+                        alpha=.3,
+                    )
+                else:
+                    plt.fill_between(
+                        graph['ds'].values,
+                        graph["%s_low" % period].values.astype(float),
+                        graph["%s_high" % period].values.astype(float),
+                        alpha=.3,
+                    )
 
                 plt.title("Model Seasonality (%s) for period: %s days" % (sn, period))
                 plt.axes().xaxis.label.set_visible(False)
