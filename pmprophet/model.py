@@ -74,7 +74,7 @@ class PMProphet:
         self.chains = None
 
         if len(changepoints) > 0 and n_changepoints > 0:
-            print("ignoring the `n_changepoints` parameter since a list of changepoints were passed")
+            print("Ignoring the `n_changepoints` parameter since a list of changepoints were passed")
             n_changepoints = None
         if 'y' not in data.columns:
             raise Exception("Target variable should be called `y` in the `data` dataframe")
@@ -290,9 +290,6 @@ class PMProphet:
             else:
                 additive_seasonality += self.data[seasonal_component].values * self.priors['seasonality'][idx]
 
-        additive_seasonality *= self.data.y.max()
-        # multiplicative_seasonality *= self.data.y.max()
-
         with self.model:
             if self.seasonality:
                 if not isinstance(additive_seasonality, np.ndarray):
@@ -356,7 +353,7 @@ class PMProphet:
             The number of MCMC draws.
         trace_size: int, =1000
             The last N number of samples to keep in the trace
-        method : 'NUTS' or 'Metropolis'.
+        method : 'NUTS' or 'Metropolis' or 'ADVI'.
         map_initialization : bool
             Initialize the model with maximum a posteriori estimates.
         finalize : bool
@@ -372,10 +369,10 @@ class PMProphet:
         The fitted PMProphet object.
         """
 
-        if chains * draws < trace_size and method != 'AVDI':
+        if chains * draws < trace_size and method != 'ADVI':
             raise Exception("Desired trace size should be smaller than the sampled data points")
 
-        self.skip_first = (chains * draws) - trace_size if method != 'AVDI' else 0
+        self.skip_first = (chains * draws) - trace_size if method != 'ADVI' else 0
         self.chains = chains
 
         if finalize:
@@ -487,7 +484,6 @@ class PMProphet:
         if self.seasonality:
             # Add seasonality
             additive_seasonality, multiplicative_seasonality = m._fit_seasonality(flatten_components=True)
-            additive_seasonality *= self.data.y.max()
 
         if self.intercept:
             # Add intercept
@@ -532,13 +528,13 @@ class PMProphet:
         ddf = pd.DataFrame(
             [
                 np.percentile(y_hat_noised, 50, axis=-1),
-                np.percentile(y_hat_noised, math.ceil(100 - (100 * alpha / 2)), axis=-1),
-                np.percentile(y_hat_noised, math.floor(100 * alpha / 2), axis=-1),
+                np.percentile(y_hat_noised, alpha / 2 * 100, axis=-1),
+                np.percentile(y_hat_noised, (1 - alpha / 2) * 100, axis=-1),              
             ]
         ).T
 
         ddf['ds'] = m.data['ds']
-        ddf.columns = ['y_hat', 'y_high', 'y_low', 'ds']
+        ddf.columns = ['y_hat', 'y_low', 'y_high', 'ds']
 
         if plot:
             plt.figure(figsize=(20, 10))
@@ -559,11 +555,11 @@ class PMProphet:
 
         return ddf
 
-    def make_trend(self, alpha):
+    def make_trend(self, alpha=0.05):
         """
         Generates the trend component for the model
         :param alpha: float
-            Width of the the credible intervals.
+            Width of the credible intervals.
 
         Returns
         -------
@@ -575,8 +571,8 @@ class PMProphet:
                 self.data['ds'].astype(str),
                 self.data['y'],
                 np.mean(fitted_growth, axis=-1),
-                np.percentile(fitted_growth, math.floor(alpha * 100 / 2), axis=-1),
-                np.percentile(fitted_growth, math.ceil(100 - alpha * 100 / 2), axis=-1),
+                np.percentile(fitted_growth, alpha / 2 * 100, axis=-1),
+                np.percentile(fitted_growth, (1 - alpha / 2) * 100, axis=-1),
             ]).T
 
         ddf.columns = ['ds', 'y', 'y_mid', 'y_low', 'y_high']
@@ -630,9 +626,9 @@ class PMProphet:
     def _plot_growth(self, alpha, plot_kwargs):
         ddf = self.make_trend(alpha)
         g = self._fit_growth(prior=False)[:, self.skip_first:]
-        ddf['growth_mid'] = np.mean(g, axis=-1)
-        ddf['growth_low'] = np.percentile(g, 98, axis=-1)
-        ddf['growth_high'] = np.percentile(g, 2, axis=-1)
+        ddf['growth_mid'] = np.percentile(g, 50, axis=-1)     # np.mean(g, axis=-1)
+        ddf['growth_low'] = np.percentile(g, alpha / 2  * 100, axis=-1)
+        ddf['growth_high'] = np.percentile(g, (1 - alpha / 2) * 100, axis=-1)
         plt.figure(**plot_kwargs)
         ddf.plot(x='ds', y='growth_mid', ax=plt.gca())
         plt.title("Model Trend")
@@ -717,12 +713,10 @@ class PMProphet:
         plt.show()
 
     def _plot_seasonality(self, alpha, plot_kwargs):
-        two_tailed_alpha = int(alpha / 2 * 100)
+        #two_tailed_alpha = int(alpha / 2 * 100)
         periods = list(set([float(i.split("_")[1]) for i in self.seasonality]))
 
         additive_ts, multiplicative_ts = self._fit_seasonality()
-        additive_ts *= (self.data.y.max())  # if self.intercept else 1)
-        multiplicative_ts *= (self.data.y.max())  # if self.intercept else 1)
 
         all_seasonalities = [('additive', additive_ts)]
         if len(self.multiplicative_data):
@@ -733,8 +727,8 @@ class PMProphet:
             ddf = pd.DataFrame(
                 np.vstack([
                     np.percentile(ts[:, :, self.skip_first:], 50, axis=-1),
-                    np.percentile(ts[:, :, self.skip_first:], two_tailed_alpha, axis=-1),
-                    np.percentile(ts[:, :, self.skip_first:], 100 - two_tailed_alpha, axis=-1)
+                    np.percentile(ts[:, :, self.skip_first:], alpha / 2 * 100, axis=-1),
+                    np.percentile(ts[:, :, self.skip_first:], (1 - alpha / 2) * 100, axis=-1)
                 ]).T,
                 columns=["%s_%s" % (p, l) for l in ['mid', 'low', 'high'] for p in periods[::-1]]
             )
