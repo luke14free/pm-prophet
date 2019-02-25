@@ -475,7 +475,7 @@ class PMProphet:
         m.trace = self.trace
         m.multiplicative_data = self.multiplicative_data
 
-        draws = max(self.trace[var].shape[-1] for var in self.trace.varnames if 'hat_model' not in var)
+        draws = max(self.trace[var].shape[-1] for var in self.trace.varnames if 'hat_{}'.format(self.name) not in var)
         if self.growth:
             # Start with the trend
             y_hat = m._fit_growth(prior=False)
