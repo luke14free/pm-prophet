@@ -4,6 +4,9 @@ import matplotlib.pylab as plt
 import numpy as np
 import pandas as pd
 import pymc3 as pm
+import theano
+import theano.tensor as tt
+import logging
 
 
 class PMProphet:
@@ -46,8 +49,8 @@ class PMProphet:
     """
 
     def __init__(self, data, growth=False, intercept=True, model=None, name=None, changepoints=[], n_changepoints=25,
-                 changepoints_prior_scale=0.05, holidays_prior_scale=10.0, seasonality_prior_scale=10.0,
-                 regressors_prior_scale=2.5, positive_regressors_coefficients=False):
+                 changepoints_prior_scale=2.5, holidays_prior_scale=2.5, seasonality_prior_scale=2.5,
+                 regressors_prior_scale=2.5, positive_regressors_coefficients=False, auto_changepoints=False):
         self.data = data.copy()
         self.data['ds'] = pd.to_datetime(arg=self.data['ds'])
         self.data.index = range(len(self.data))
@@ -63,6 +66,7 @@ class PMProphet:
         self.start = {}
         self.priors_names = {}
         self.changepoints = pd.DatetimeIndex(changepoints)
+        self.n_changepoints = n_changepoints
         self.changepoints_prior_scale = changepoints_prior_scale
         self.holidays_prior_scale = holidays_prior_scale
         self.seasonality_prior_scale = seasonality_prior_scale
@@ -72,10 +76,16 @@ class PMProphet:
         self.multiplicative_data = set([])
         self.skip_first = None
         self.chains = None
+        self.changepoint_weights = None
+        self.auto_changepoints = auto_changepoints
+        self.w = 1
 
         if len(changepoints) > 0 and n_changepoints > 0:
-            print("Ignoring the `n_changepoints` parameter since a list of changepoints were passed")
+            logging.warning("ignoring the `n_changepoints` parameter since a list of changepoints were passed")
             n_changepoints = None
+        if auto_changepoints:
+            logging.info("Enabling autochangepoints, ignoring other changepoints parameters")
+            logging.warning("Note that the automatic changepoint feature is experimental")
         if 'y' not in data.columns:
             raise Exception("Target variable should be called `y` in the `data` dataframe")
         if 'ds' not in data.columns:
@@ -218,11 +228,22 @@ class PMProphet:
                     self.priors['regressors'] = pm.Laplace('regressors_%s' % self.name, 0, self.regressors_prior_scale,
                                                            shape=len(self.regressors))
             if self.growth and 'growth' not in self.priors:
-                self.priors['growth'] = pm.Normal('growth_%s' % self.name, 0, 10)
+                self.priors['growth'] = pm.Normal('growth_%s' % self.name, 0, 0.1)
             if len(self.changepoints) and 'changepoints' not in self.priors and len(self.changepoints):
-                self.priors['changepoints'] = pm.Laplace('changepoints_%s' % self.name, 0,
-                                                         self.changepoints_prior_scale,
-                                                         shape=len(self.changepoints))
+                if self.auto_changepoints:
+                    k = self.n_changepoints
+                    alpha = pm.Gamma('alpha', 1., 1.)
+                    beta = pm.Beta('beta', 1., alpha, shape=k)
+                    w1 = pm.Deterministic('w1', tt.concatenate([[1], tt.extra_ops.cumprod(1 - beta)[:-1]]) * beta)
+                    w, _ = theano.map(
+                        fn=lambda x: tt.switch(tt.gt(x, 1e-4), x, 0),
+                        sequences=[w1]
+                    )
+                    self.w = pm.Deterministic('w', w)
+                else:
+                    k = len(self.changepoints)
+                cgpt = pm.Deterministic('cgpt', w * pm.Laplace('cgpt_inner', 0, self.changepoints_prior_scale, shape=k))
+                self.priors['changepoints'] = pm.Deterministic('changepoints_%s' % self.name, cgpt)
             if self.intercept and 'intercept' not in self.priors:
                 self.priors['intercept'] = pm.Normal('intercept_%s' % self.name, self.data['y'].mean(),
                                                      self.data['y'].std() * 2)
@@ -243,22 +264,41 @@ class PMProphet:
             d = []
 
         regression = x * g
-
         if s and d:
-            base_piecewise_regression = []
+            if prior:
+                total = len(self.data)
+                if self.auto_changepoints:  # Overwrite changepoints with a uniform prior
+                    with self.model:
+                        s = pm.Uniform('s', 0, total, shape=len(self.changepoints))
+                    piecewise_regression, _ = theano.scan(
+                        fn=lambda x: tt.concatenate([tt.arange(x) * 0, tt.arange(total - x)]),
+                        sequences=[s]
+                    )
+                    piecewise_regression = (piecewise_regression.T * d.dimshuffle('x', 0)).sum(axis=-1)
+                else:
+                    base_piecewise_regression = []
 
-            for i in s:
-                local_x = x.copy()[:-i]
-                local_x = np.concatenate([np.zeros(i) if prior else np.zeros((i, local_x.shape[1])), local_x])
-                base_piecewise_regression.append(local_x)
+                    for i in s:
+                        if i > 0:
+                            local_x = x.copy()[:-i]
+                            local_x = np.concatenate([np.zeros(i) if prior else np.zeros((i, local_x.shape[1])), local_x])
+                            base_piecewise_regression.append(local_x)
 
-            piecewise_regression = np.array(base_piecewise_regression)
-            if not prior:
-                d = np.array(d)
-                piecewise_regression = np.sum([piecewise_regression[i] * d[i] for i in range(len(s))], axis=0)
+                    piecewise_regression = np.array(base_piecewise_regression)
+                    piecewise_regression = (piecewise_regression.T * d.dimshuffle('x', 0)).sum(axis=-1)
             else:
-                piecewise_regression = (piecewise_regression.T * d.dimshuffle('x', 0)).sum(axis=-1)
-            regression += piecewise_regression
+                base_piecewise_regression = []
+
+                for i in s:
+                    local_x = x.copy()[:-i]
+                    local_x = np.concatenate([np.zeros(i) if prior else np.zeros((i, local_x.shape[1])), local_x])
+                    base_piecewise_regression.append(local_x)
+
+                piecewise_regression = np.array(base_piecewise_regression)
+                d = np.array(d)
+                regression_pieces = [piecewise_regression[i] * d[i] for i in range(len(s))]
+                piecewise_regression = np.sum([piece for piece in regression_pieces], axis=0)
+            regression = piecewise_regression
 
         return regression
 
@@ -341,6 +381,26 @@ class PMProphet:
             )
             pm.Deterministic('y_hat_%s' % self.name, self.y)
 
+    def _finalize_auto_changepoints(self, plot=False):
+        if not self.auto_changepoints:
+            return
+        self.changepoints = []
+        self.changepoint_weights = []
+        if plot:
+            plt.figure(figsize=(20, 10))
+        for i in range(self.n_changepoints):
+            changepoint_location = self.trace['s'][:, i][self.skip_first:]
+            changepoint_weight = self.trace['w'][:, i][self.skip_first:]
+            if plot:
+                plt.hist(changepoint_location, alpha=np.median(changepoint_weight))
+            changepoint_idx = np.median(changepoint_location)
+            self.changepoints.append(self.data.ds[int(changepoint_idx)])
+            self.changepoint_weights.append(np.median(changepoint_weight))
+        if plot:
+            plt.grid()
+            plt.title('Automatic changepoints plausible locations (alpha is weight)')
+        return self.changepoints
+
     def fit(self, draws=500, chains=4, trace_size=500, method='NUTS', map_initialization=False,
             finalize=True, step_kwargs={}, sample_kwargs={}):
         """Fit the PMProphet model.
@@ -385,11 +445,16 @@ class PMProphet:
                     self.trace = {k: np.array([v]) for k, v in self.start.items()}
 
             if draws:
-                if method == 'NUTS' or method == 'Metropolis':
+                if method != 'AVDI':
+                    step_method = {
+                        'NUTS': pm.NUTS,
+                        'Metropolis': pm.Metropolis,
+                        'SMC': pm.SMC
+                    }[method](**step_kwargs)
                     self.trace = pm.sample(
                         draws,
                         chains=chains,
-                        step=pm.Metropolis(**step_kwargs) if method == 'Metropolis' else pm.NUTS(**step_kwargs),
+                        step=step_method,
                         start=self.start if map_initialization else None,
                         **sample_kwargs
                     )
@@ -422,6 +487,10 @@ class PMProphet:
         -------
         A pd.DataFrame with the forecast components.
         """
+
+        if self.auto_changepoints:
+            self._finalize_auto_changepoints(plot=False)
+
         last_date = self.data['ds'].max()
         dates = pd.date_range(
             start=last_date,
@@ -472,7 +541,7 @@ class PMProphet:
         m.trace = self.trace
         m.multiplicative_data = self.multiplicative_data
 
-        draws = max(self.trace[var].shape[-1] for var in self.trace.varnames)
+        draws = max(self.trace[var].shape[-1] for var in self.trace.varnames if 'hat_{}'.format(self.name) not in var)
         if self.growth:
             # Start with the trend
             y_hat = m._fit_growth(prior=False)
@@ -548,9 +617,13 @@ class PMProphet:
             )
 
             ddf.plot('ds', 'orig_y', style='k.', ax=plt.gca(), alpha=.2)
-            for change_point in m.changepoints:
-                plt.axvline(change_point, color='C2', lw=1, ls='dashed')
+            for idx, change_point in enumerate(self.changepoints):
+                if self.auto_changepoints:
+                    plt.axvline(change_point, color='C2', lw=1, ls='dashed', alpha=self.changepoint_weights[idx])
+                else:
+                    plt.axvline(change_point, color='C2', lw=1, ls='dashed')
             plt.axvline(pd.to_datetime(self.data.ds).max(), color='C3', lw=1, ls='dotted')
+            plt.grid(axis='y')
             plt.show()
 
         return ddf
@@ -610,6 +683,8 @@ class PMProphet:
         if not plt_kwargs:
             plt_kwargs = {'figsize': (20, 10)}
 
+        if self.auto_changepoints:
+            self._finalize_auto_changepoints(plot=changepoints)
         if seasonality and self.seasonality:
             self._plot_seasonality(alpha, plt_kwargs)
         if growth and self.growth:
@@ -707,7 +782,7 @@ class PMProphet:
         plt.figure(**plot_kwargs)
         pm.forestplot(self.trace[self.skip_first // self.chains:], alpha=alpha,
                       varnames=[self.priors_names['changepoints']],
-                      ylabels=self.changepoints.astype(str))
+                      ylabels=np.array(self.changepoints).astype(str))
         plt.grid()
         plt.title("Growth Change Points")
         plt.show()
