@@ -8,7 +8,7 @@ Pymc3-based universal time series prediction and decomposition library (inspired
 - [Installing pm-prophet](#installing-pm-prophet)
 - [Key features](#key-features)
 - [Differences with [Prophet]](#differences-with-Prophet)
-- [Peyton Manning example](#usage-example:-peyton-manning-example)
+- [Peyton Manning example](#usage-example-peyton-manning-example)
 - [Custom Priors](#custom-priors)
 
 
