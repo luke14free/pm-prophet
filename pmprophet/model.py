@@ -240,7 +240,7 @@ class PMProphet:
                     self.w = pm.Deterministic('w', w)
                 else:
                     k = len(self.changepoints)
-                cgpt = pm.Laplace('cgpt', 0, self.w * self.changepoints_prior_scale, shape=k)
+                cgpt = pm.Deterministic('cgpt', w * pm.Laplace('cgpt_inner', 0, self.changepoints_prior_scale, shape=k))
                 self.priors['changepoints'] = pm.Deterministic('changepoints_%s' % self.name, cgpt)
             if self.intercept and 'intercept' not in self.priors:
                 self.priors['intercept'] = pm.Normal('intercept_%s' % self.name, self.data['y'].mean(),
@@ -268,8 +268,8 @@ class PMProphet:
                 if self.auto_changepoints:  # Overwrite changepoints with a uniform prior
                     with self.model:
                         s = pm.Uniform('s', 0, total, shape=len(self.changepoints))
-                        #s = pm.Deterministic('s', total * (tt.extra_ops.cumsum(ss)/tt.sum(ss))[:-1])
-                        #s = pm.Deterministic('s', ss*1.0)
+                        # s = pm.Deterministic('s', total * (tt.extra_ops.cumsum(ss)/tt.sum(ss))[:-1])
+                        # s = pm.Deterministic('s', ss*1.0)
 
                     piecewise_regression, _ = theano.scan(
                         fn=lambda x: tt.concatenate([tt.arange(x) * 0, tt.arange(total - x)]),
@@ -285,8 +285,18 @@ class PMProphet:
                         base_piecewise_regression.append(local_x)
 
                     piecewise_regression = np.array(base_piecewise_regression)
-                    d = np.array(d)
-                    piecewise_regression = np.sum([piecewise_regression[i] * d[i] for i in range(len(s))], axis=0)
+                    piecewise_regression = (piecewise_regression.T * d.dimshuffle('x', 0)).sum(axis=-1)
+            else:
+                base_piecewise_regression = []
+
+                for i in s:
+                    local_x = x.copy()[:-i]
+                    local_x = np.concatenate([np.zeros(i) if prior else np.zeros((i, local_x.shape[1])), local_x])
+                    base_piecewise_regression.append(local_x)
+
+                piecewise_regression = np.array(base_piecewise_regression)
+                d = np.array(d)
+                piecewise_regression = np.sum([piecewise_regression[i] * d[i] for i in range(len(s))], axis=0)
             regression = piecewise_regression
 
         return regression
@@ -443,7 +453,6 @@ class PMProphet:
                         'Metropolis': pm.Metropolis,
                         'SMC': pm.SMC
                     }[method](**step_kwargs)
-                    print(step_method)
                     self.trace = pm.sample(
                         draws,
                         chains=chains,
@@ -535,7 +544,6 @@ class PMProphet:
         m.multiplicative_data = self.multiplicative_data
 
         draws = max(self.trace[var].shape[-1] for var in self.trace.varnames if 'hat_{}'.format(self.name) not in var)
-        print(draws)
         if self.growth:
             # Start with the trend
             y_hat = m._fit_growth(prior=False)
