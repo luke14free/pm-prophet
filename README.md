@@ -169,6 +169,8 @@ Where n_changepoints is interpreted as the truncation point for the Dirichlet Pr
 Pm-prophet will then decide which changepoint values make sense and add a custom weight to them.
 A call to `plot_components()` will reveal the changepoint map:
 
+![Regressors](https://raw.githubusercontent.com/luke14free/pm-prophet/master/examples/images/automatic-changepoint-detection.png)
+
 A few caveats exist:
 - It's slow to fit since it's a non-parametric model
 - For best results use NUTS as method
