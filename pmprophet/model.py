@@ -6,6 +6,7 @@ import pandas as pd
 import pymc3 as pm
 import theano
 import theano.tensor as tt
+import logging
 
 
 class PMProphet:
@@ -80,10 +81,11 @@ class PMProphet:
         self.w = 1
 
         if len(changepoints) > 0 and n_changepoints > 0:
-            print("ignoring the `n_changepoints` parameter since a list of changepoints were passed")
+            logging.warning("ignoring the `n_changepoints` parameter since a list of changepoints were passed")
             n_changepoints = None
         if auto_changepoints:
-            print("Enabling autochangepoints, ignoring other changepoints parameters")
+            logging.info("Enabling autochangepoints, ignoring other changepoints parameters")
+            logging.warning("Note that the automatic changepoint feature is experimental")
         if 'y' not in data.columns:
             raise Exception("Target variable should be called `y` in the `data` dataframe")
         if 'ds' not in data.columns:

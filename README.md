@@ -30,6 +30,9 @@ Note that the key dependency of pm-prophet is **PyMc3** a library that depends o
 * Automatic changepoint location detection (not in Facebook's prophet original model)
 * Fitting with NUTS/AVDI/Metropolis
 
+## Experimental
+* Automatic changepoint detection using a non-parametric stick-breaking process
+
 ## Differences with [Prophet](https://facebook.github.io/prophet/):
 * Saturating growth is not implemented 
 * Uncertainty estimation is different
@@ -45,7 +48,7 @@ Predicting the Peyton Manning timeseries:
 import pandas as pd
 from pmprophet.model import PMProphet
 
-df = pd.read_csv("/Users/luca/pm-prophet/examples/example_wp_log_peyton_manning.csv")
+df = pd.read_csv("pm-prophet/examples/example_wp_log_peyton_manning.csv")
 df = df.head(180)
 
 # Fit both growth and intercept
@@ -102,6 +105,7 @@ constraint by using an Exponential distribution instead of a Laplacian distribut
 import pandas as pd
 import numpy as np
 import pymc3 as pm
+from pmprophet.model import PMProphet
 
 n_timesteps = 100
 n_regressors = 20
@@ -137,7 +141,7 @@ m.plot_components()
 ![Regressors](https://raw.githubusercontent.com/luke14free/pm-prophet/master/examples/images/regressors.png)
 
 
-## Automatic changepoint detection
+## Automatic changepoint detection (⚠️experimental)
 
 Pm-prophet is equipped with a non-parametric truncated Dirichlet Process allowing it to automatically detect
 changepoints in the trend.
@@ -148,14 +152,15 @@ To enable it simply initialize the model with `auto_changepoints=True` as follow
 from pmprophet.model import PMProphet
 import pandas as pd
 
-df = pd.DataFrame(...)
-
-m = PMProphet(
-    df,
-    growth=True,
-    auto_changepoints=True,
-    n_changepoints=30, 
-    name='model'
+df = pd.read_csv("pm-prophet/examples/example_wp_log_peyton_manning.csv")
+df = df.head(180)
+m = PMProphet(df, auto_changepoints=True, growth=True, intercept=True, name='model')
+m.add_seasonality(seasonality=30, fourier_order=3)
+m.add_seasonality(seasonality=365, fourier_order=3)
+m.fit(method='Metropolis', draws=2000)
+m.predict(60, alpha=0.2, include_history=True, plot=True)
+m.plot_components(
+    intercept=False,
 )
 ```
 
