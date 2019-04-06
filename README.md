@@ -8,7 +8,7 @@ Pymc3-based universal time series prediction and decomposition library (inspired
 - [Installing pm-prophet](#installing-pm-prophet)
 - [Key features](#key-features)
 - [Differences with [Prophet]](#differences-with-Prophet)
-- [Peyton Manning example](#usage-example-peyton-manning-example)
+- [Peyton Manning example](#peyton-manning-example)
 - [Custom Priors](#custom-priors)
 
 
@@ -42,7 +42,7 @@ for it's estimates.
 * While Faceook prophet is a well-defined fixed model, pm-prophet allows for total flexibility in the choice of priors 
 and thus is potentially suited for a wider class of estimation problems
 
-## Usage Example: Peyton Manning example
+## Peyton Manning example
 Predicting the Peyton Manning timeseries:
 ```python
 import pandas as pd
