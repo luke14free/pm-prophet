@@ -1,23 +1,37 @@
 # pm-prophet 
+
+![Logo](https://raw.githubusercontent.com/luke14free/pm-prophet/master/examples/images/prophet_logo.png)
+
 Pymc3-based universal time series prediction and decomposition library (inspired by [Facebook Prophet](https://facebook.github.io/prophet/)). However, while Faceook prophet is a well-defined model, pm-prophet allows for total flexibility in the choice of priors and thus is potentially suited for a wider class of estimation problems
 
-To install:
+## Table of Contents
+- [Installing pm-prophet](#installing-pm-prophet)
+- [Key features](#key-features)
+- [Differences with [Prophet]](#differences-with-Prophet)
+- [Peyton Manning example](#usage-example:-peyton-manning-example)
+- [Custom Priors](#custom-priors)
 
-`pip install pmprophet`
 
-What's implemented:
+## Installing pm-prophet
+
+PM-Prophet installation is straightforward using pip: `pip install pmprophet`
+
+Note that the key dependency of pm-prophet is **PyMc3** a library that depends on **Theano**.
+
+## Key Features
 * Nowcasting & Forecasting
 * Intercept, growth
 * Regressors
 * Holidays
 * Additive & multiplicative seasonality
 * Fitting and plotting
-* Custom choice of priors (not included in the original prophet)
+* Custom choice of priors (not in Facebook's prophet original model)
 * Changepoints in growth
+* Automatic changepoint location detection (not in Facebook's prophet original model)
 * Fitting with NUTS/AVDI/Metropolis
 
-Differencies with respect to [Facebook Prophet](https://facebook.github.io/prophet/):
-* Saturating growth is not implemented
+## Differences with [Prophet](https://facebook.github.io/prophet/):
+* Saturating growth is not implemented 
 * Uncertainty estimation is different
 * All components (including seasonality) need to be explicitly added to the model
 * By design pm-prophet places a big emphasis on posteriors and uncertainty estimates, and therefore it won't use MAP
@@ -25,6 +39,7 @@ for it's estimates.
 * While Faceook prophet is a well-defined fixed model, pm-prophet allows for total flexibility in the choice of priors 
 and thus is potentially suited for a wider class of estimation problems
 
+## Usage Example: Peyton Manning example
 Predicting the Peyton Manning timeseries:
 ```python
 import pandas as pd
@@ -64,15 +79,15 @@ The default priors are:
 
 Variable | Prior | Parameters
 --- | --- | --- 
-`regressors` | Normal | loc:0, scale:10 
-`holidays` | Laplace | loc:0, scale:10 
+`regressors` | Laplace | loc:0, scale:2.5 
+`holidays` | Laplace | loc:0, scale:2.5 
 `seasonality` | Laplace | loc:0, scale:0.05
 `growth` | Laplace | loc:0, scale:10 
-`changepoints` | Laplace | loc:0, scale:10 
+`changepoints` | Laplace | loc:0, scale:2.5 
 `intercept` | Normal | loc:`y.mean`, scale: `2 * y.std`
-`sigma` | Half Cauchy | loc:100
+`sigma` | Half Cauchy | tau:10
 
-But you can change model priors by inspecting and modifying the distribution in
+But you can change model priors by inspecting and modifying the distributions stored in
 
 ```python
 m.priors
@@ -120,3 +135,36 @@ m.plot_components()
 ```
 
 ![Regressors](https://raw.githubusercontent.com/luke14free/pm-prophet/master/examples/images/regressors.png)
+
+
+## Automatic changepoint detection
+
+Pm-prophet is equipped with a non-parametric truncated Dirichlet Process allowing it to automatically detect
+changepoints in the trend.
+
+To enable it simply initialize the model with `auto_changepoints=True` as follows:
+
+```python
+from pmprophet.model import PMProphet
+import pandas as pd
+
+df = pd.DataFrame(...)
+
+m = PMProphet(
+    df,
+    growth=True,
+    auto_changepoints=True,
+    n_changepoints=30, 
+    name='model'
+)
+```
+
+Where n_changepoints is interpreted as the truncation point for the Dirichlet Process.
+
+Pm-prophet will then decide which changepoint values make sense and add a custom weight to them.
+A call to `plot_components()` will reveal the changepoint map:
+
+A few caveats exist:
+- It's slow to fit since it's a non-parametric model
+- For best results use NUTS as method
+- It will likely require more than the default number of draws to converge
