@@ -48,7 +48,7 @@ Predicting the Peyton Manning timeseries:
 import pandas as pd
 from pmprophet.model import PMProphet
 
-df = pd.read_csv("pm-prophet/examples/example_wp_log_peyton_manning.csv")
+df = pd.read_csv("examples/example_wp_log_peyton_manning.csv")
 df = df.head(180)
 
 # Fit both growth and intercept
@@ -152,7 +152,7 @@ To enable it simply initialize the model with `auto_changepoints=True` as follow
 from pmprophet.model import PMProphet
 import pandas as pd
 
-df = pd.read_csv("pm-prophet/examples/example_wp_log_peyton_manning.csv")
+df = pd.read_csv("examples/example_wp_log_peyton_manning.csv")
 df = df.head(180)
 m = PMProphet(df, auto_changepoints=True, growth=True, intercept=True, name='model')
 m.add_seasonality(seasonality=30, fourier_order=3)
