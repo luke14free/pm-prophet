@@ -53,8 +53,26 @@ def test_automatic_changepoints():
     )
 
 
+def test_automatic_changepoints_2():
+    z = np.arange(200) + np.concatenate([
+        np.arange(60) * 2,
+        np.arange(60) * -2,
+        np.arange(80) * 5,
+    ])
+    df = pd.DataFrame()
+    df['ds'] = pd.date_range(start='2018-01-01', periods=200)
+    df['y'] = z
+    m = PMProphet(df, auto_changepoints=True, growth=True, intercept=False, name='model')
+    m.fit(method='NUTS')
+    m.predict(60, alpha=0.2, include_history=True, plot=True)
+    m.plot_components(
+        intercept=False,
+    )
+
+
 if __name__ == "__main__":
-    test_manning()
-    test_manning_reduced_six_months()
-    test_automatic_changepoints_manning()
-    test_automatic_changepoints()
+    # test_manning()
+    # test_manning_reduced_six_months()
+    # test_automatic_changepoints_manning()
+    # test_automatic_changepoints()
+    test_automatic_changepoints_2()

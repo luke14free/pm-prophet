@@ -280,9 +280,10 @@ class PMProphet:
                     base_piecewise_regression = []
 
                     for i in s:
-                        local_x = x.copy()[:-i]
-                        local_x = np.concatenate([np.zeros(i) if prior else np.zeros((i, local_x.shape[1])), local_x])
-                        base_piecewise_regression.append(local_x)
+                        if i > 0:
+                            local_x = x.copy()[:-i]
+                            local_x = np.concatenate([np.zeros(i) if prior else np.zeros((i, local_x.shape[1])), local_x])
+                            base_piecewise_regression.append(local_x)
 
                     piecewise_regression = np.array(base_piecewise_regression)
                     piecewise_regression = (piecewise_regression.T * d.dimshuffle('x', 0)).sum(axis=-1)
@@ -296,7 +297,8 @@ class PMProphet:
 
                 piecewise_regression = np.array(base_piecewise_regression)
                 d = np.array(d)
-                piecewise_regression = np.sum([piecewise_regression[i] * d[i] for i in range(len(s))], axis=0)
+                regression_pieces = [piecewise_regression[i] * d[i] for i in range(len(s))]
+                piecewise_regression = np.sum([piece for piece in regression_pieces], axis=0)
             regression = piecewise_regression
 
         return regression
