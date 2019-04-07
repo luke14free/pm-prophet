@@ -297,7 +297,7 @@ class PMProphet:
                 piecewise_regression = np.array(base_piecewise_regression)
                 d = np.array(d)
                 regression_pieces = [piecewise_regression[i] * d[i] for i in range(len(s))]
-                piecewise_regression = np.sum([piece for piece in regression_pieces], axis=0)
+                piecewise_regression = np.sum([piece for piece in regression_pieces if len(piece)], axis=0)
             regression = piecewise_regression
 
         return regression
