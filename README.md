@@ -4,7 +4,7 @@
 
 Pymc3-based universal time series prediction and decomposition library (inspired by [Facebook Prophet](https://facebook.github.io/prophet/)). However, while Faceook prophet is a well-defined model, pm-prophet allows for total flexibility in the choice of priors and thus is potentially suited for a wider class of estimation problems.
 
-**Only supports Python 3**
+** ⚠️ Only supports Python 3**
 
 ## Table of Contents
 - [Installing pm-prophet](#installing-pm-prophet)
@@ -32,8 +32,8 @@ Note that the key dependency of pm-prophet is **PyMc3** a library that depends o
 * Automatic changepoint location detection (not in Facebook's prophet original model)
 * Fitting with NUTS/AVDI/Metropolis
 
-## Experimental
-* Automatic changepoint detection using a non-parametric stick-breaking process
+## Experimental warning ⚠️
+* Note that automatic changepoint detection using a non-parametric stick-breaking process is experimental
 
 ## Differences with [Prophet](https://facebook.github.io/prophet/):
 * Saturating growth is not implemented 
