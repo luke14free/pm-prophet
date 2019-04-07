@@ -242,6 +242,7 @@ class PMProphet:
                     self.w = pm.Deterministic('w', w)
                 else:
                     k = len(self.changepoints)
+                    w = 1
                 cgpt = pm.Deterministic('cgpt', w * pm.Laplace('cgpt_inner', 0, self.changepoints_prior_scale, shape=k))
                 self.priors['changepoints'] = pm.Deterministic('changepoints_%s' % self.name, cgpt)
             if self.intercept and 'intercept' not in self.priors:
