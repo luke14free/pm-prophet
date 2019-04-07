@@ -2,7 +2,9 @@
 
 ![Logo](https://raw.githubusercontent.com/luke14free/pm-prophet/master/examples/images/prophet_logo.png)
 
-Pymc3-based universal time series prediction and decomposition library (inspired by [Facebook Prophet](https://facebook.github.io/prophet/)). However, while Faceook prophet is a well-defined model, pm-prophet allows for total flexibility in the choice of priors and thus is potentially suited for a wider class of estimation problems
+Pymc3-based universal time series prediction and decomposition library (inspired by [Facebook Prophet](https://facebook.github.io/prophet/)). However, while Faceook prophet is a well-defined model, pm-prophet allows for total flexibility in the choice of priors and thus is potentially suited for a wider class of estimation problems.
+
+* Only supports Python 3 *
 
 ## Table of Contents
 - [Installing pm-prophet](#installing-pm-prophet)
