@@ -445,11 +445,11 @@ class PMProphet:
                     self.trace = {k: np.array([v]) for k, v in self.start.items()}
 
             if draws:
-                if method != 'AVDI':
+                if method != 'ADVI':
                     step_method = {
                         'NUTS': pm.NUTS,
                         'Metropolis': pm.Metropolis,
-                        'SMC': pm.SMC
+                        'SMC': pm.SMC,
                     }[method](**step_kwargs)
                     self.trace = pm.sample(
                         draws,
