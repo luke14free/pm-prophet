@@ -155,8 +155,6 @@ import pandas as pd
 df = pd.read_csv("examples/example_wp_log_peyton_manning.csv")
 df = df.head(180)
 m = PMProphet(df, auto_changepoints=True, growth=True, intercept=True, name='model')
-m.add_seasonality(seasonality=30, fourier_order=3)
-m.add_seasonality(seasonality=365, fourier_order=3)
 m.fit(method='Metropolis', draws=2000)
 m.predict(60, alpha=0.2, include_history=True, plot=True)
 m.plot_components(
