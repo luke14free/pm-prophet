@@ -46,7 +46,7 @@ and thus is potentially suited for a wider class of estimation problems
 Predicting the Peyton Manning timeseries:
 ```python
 import pandas as pd
-from pmprophet.model import PMProphet
+from pmprophet.model import PMProphet, Sampler
 
 df = pd.read_csv("examples/example_wp_log_peyton_manning.csv")
 df = df.head(180)
@@ -61,7 +61,7 @@ m.add_seasonality(seasonality=30, fourier_order=3)
 m.add_seasonality(seasonality=7, fourier_order=3)
 
 # Fit the model (using NUTS)
-m.fit(method='NUTS')
+m.fit(method=Sampler.NUTS)
 
 ddf = m.predict(60, alpha=0.2, include_history=True, plot=True)
 m.plot_components(
@@ -105,7 +105,7 @@ constraint by using an Exponential distribution instead of a Laplacian distribut
 import pandas as pd
 import numpy as np
 import pymc3 as pm
-from pmprophet.model import PMProphet
+from pmprophet.model import PMProphet, Sampler
 
 n_timesteps = 100
 n_regressors = 20
@@ -133,7 +133,7 @@ for regressor in regressors_names:
 
 m.fit(
     draws=10 ** 4,
-    method='NUTS',
+    method=Sampler.NUTS,
 )
 m.plot_components()
 ```
@@ -149,13 +149,13 @@ changepoints in the trend.
 To enable it simply initialize the model with `auto_changepoints=True` as follows:
 
 ```python
-from pmprophet.model import PMProphet
+from pmprophet.model import PMProphet, Sampler
 import pandas as pd
 
 df = pd.read_csv("examples/example_wp_log_peyton_manning.csv")
 df = df.head(180)
 m = PMProphet(df, auto_changepoints=True, growth=True, intercept=True, name='model')
-m.fit(method='Metropolis', draws=2000)
+m.fit(method=Sampler.METROPOLIS, draws=2000)
 m.predict(60, alpha=0.2, include_history=True, plot=True)
 m.plot_components(
     intercept=False,
