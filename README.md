@@ -33,7 +33,7 @@ Note that the key dependency of pm-prophet is **PyMc3** a library that depends o
 * Fitting with NUTS/AVDI/Metropolis
 
 ## Experimental warning ⚠️
-* Note that automatic changepoint detection using a non-parametric stick-breaking process is experimental
+* Note that automatic changepoint detection is experimental
 
 ## Differences with [Prophet](https://facebook.github.io/prophet/):
 * Saturating growth is not implemented 
