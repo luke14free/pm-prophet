@@ -1,1 +1,1 @@
-from .model import PMProphet
+from .model import PMProphet, Sampler
