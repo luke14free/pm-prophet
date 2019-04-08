@@ -1,1 +1,1 @@
-from .model import PMProphet, Sampler
+from .model import PMProphet, Sampler, Seasonality
