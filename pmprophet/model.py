@@ -925,7 +925,7 @@ class PMProphet:
         pm.forestplot(
             self.trace[self.skip_first // self.chains :],
             varnames=[self.priors_names["intercept"]],
-            alpha=alpha,
+            ridgeplot_alpha=alpha,
         )
         plt.show()
 
@@ -950,7 +950,7 @@ class PMProphet:
         plt.figure(**plot_kwargs)
         pm.forestplot(
             self.trace[self.skip_first // self.chains :],
-            alpha=alpha,
+            ridgeplot_alpha=alpha,
             varnames=[self.priors_names["regressors"]],
             ylabels=self.regressors,
         )
@@ -961,7 +961,7 @@ class PMProphet:
         plt.figure(**plot_kwargs)
         pm.forestplot(
             self.trace[self.skip_first // self.chains :],
-            alpha=alpha,
+            ridgeplot_alpha=alpha,
             varnames=[self.priors_names["holidays"]],
             ylabels=self.holidays,
         )
@@ -1008,7 +1008,7 @@ class PMProphet:
         plt.figure(**plot_kwargs)
         pm.forestplot(
             self.trace[self.skip_first // self.chains :],
-            alpha=alpha,
+            ridgeplot_alpha=alpha,
             varnames=[self.priors_names["changepoints"]],
             ylabels=np.array(self.changepoints).astype(str),
         )
