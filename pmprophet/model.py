@@ -780,7 +780,7 @@ class PMProphet:
 
         y_hat_noised = np.random.normal(
             y_hat[:, self.skip_first:],
-            self.data['y'] * self.trace[self.priors_names["sigma"]][self.skip_first :]
+            self.data['y'].std() * self.trace[self.priors_names["sigma"]][self.skip_first :]
         )
 
         ddf = pd.DataFrame(
