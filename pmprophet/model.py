@@ -954,7 +954,7 @@ class PMProphet:
             ridgeplot_alpha=alpha,
             var_names=[self.priors_names["regressors"]],
         )
-        ax[0].set_yticklabels(self.regressors)
+        ax[0].set_yticklabels(self.regressors[::-1])
         plt.grid()
         plt.show()
 
@@ -965,7 +965,7 @@ class PMProphet:
             ridgeplot_alpha=alpha,
             var_names=[self.priors_names["holidays"]],
         )
-        ax[0].set_yticklabels(self.holidays)
+        ax[0].set_yticklabels(self.holidays[::-1])
         plt.grid()
         plt.show()
 
@@ -1012,7 +1012,7 @@ class PMProphet:
             ridgeplot_alpha=alpha,
             var_names=[self.priors_names["changepoints"]],
         )
-        ax[0].set_yticklabels(np.array(self.changepoints).astype(str))
+        ax[0].set_yticklabels(list(np.array(self.changepoints).astype(str))[::-1])
         plt.grid()
         plt.title("Growth Change Points")
         plt.show()
