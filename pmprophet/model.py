@@ -778,8 +778,9 @@ class PMProphet:
         y_hat *= multiplicative_term
         y_hat += additive_seasonality + additive_holidays + additive_regressors
 
-        y_hat_noised = y_hat[:, self.skip_first :] + np.random.normal(
-            0, self.trace[self.priors_names["sigma"]][self.skip_first :]
+        y_hat_noised = np.random.normal(
+            y_hat[:, self.skip_first:],
+            self.data['y'] * self.trace[self.priors_names["sigma"]][self.skip_first :]
         )
 
         ddf = pd.DataFrame(
