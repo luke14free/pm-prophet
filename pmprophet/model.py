@@ -948,23 +948,23 @@ class PMProphet:
 
     def _plot_regressors(self, alpha: float, plot_kwargs: Dict):
         plt.figure(**plot_kwargs)
-        pm.forestplot(
+        _, ax = pm.forestplot(
             self.trace[self.skip_first // self.chains :],
             ridgeplot_alpha=alpha,
             var_names=[self.priors_names["regressors"]],
-            # ylabels=self.regressors,
         )
+        ax[0].set_yticklabels(self.regressors)
         plt.grid()
         plt.show()
 
     def _plot_holidays(self, alpha: float, plot_kwargs: dict):
         plt.figure(**plot_kwargs)
-        pm.forestplot(
+        _, ax = pm.forestplot(
             self.trace[self.skip_first // self.chains :],
             ridgeplot_alpha=alpha,
             var_names=[self.priors_names["holidays"]],
-            # ylabels=self.holidays,
         )
+        ax[0].set_yticklabels(self.holidays)
         plt.grid()
         plt.show()
 
@@ -1006,12 +1006,12 @@ class PMProphet:
 
     def _plot_changepoints(self, alpha: float, plot_kwargs: Dict):
         plt.figure(**plot_kwargs)
-        pm.forestplot(
+        _, ax = pm.forestplot(
             self.trace[self.skip_first // self.chains :],
             ridgeplot_alpha=alpha,
             var_names=[self.priors_names["changepoints"]],
-            # ylabels=np.array(self.changepoints).astype(str),
         )
+        ax[0].set_yticklabels(np.array(self.changepoints).astype(str))
         plt.grid()
         plt.title("Growth Change Points")
         plt.show()
