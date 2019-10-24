@@ -333,7 +333,7 @@ class PMProphet:
     def _fit_growth(self, prior: bool = True) -> any:
         """Fit the growth component."""
         s = [
-            self.data.ix[(self.data["ds"] - i).abs().argsort()[:1]].index[0]
+            self.data.iloc[(self.data["ds"] - i).abs().argsort()[:1]].index[0]
             for i in self.changepoints
         ]
         g = self.priors["growth"] if prior else self.trace[self.priors_names["growth"]]
