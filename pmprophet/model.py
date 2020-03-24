@@ -299,23 +299,23 @@ class PMProphet:
             ):
                 if self.auto_changepoints:
                     k = self.n_changepoints
-                    alpha = pm.Gamma("alpha", 1.0, 1.0)
-                    beta = pm.Beta("beta", 1.0, alpha, shape=k)
+                    alpha = pm.Gamma("alpha_%s" % self.name, 1.0, 1.0)
+                    beta = pm.Beta("beta_%s" % self.name, 1.0, alpha, shape=k)
                     w1 = pm.Deterministic(
-                        "w1",
+                        "w1_%s" % self.name,
                         tt.concatenate([[1], tt.extra_ops.cumprod(1 - beta)[:-1]])
                         * beta,
                     )
                     w, _ = theano.map(
                         fn=lambda x: tt.switch(tt.gt(x, 1e-4), x, 0), sequences=[w1]
                     )
-                    self.w = pm.Deterministic("w", w)
+                    self.w = pm.Deterministic("w_%s" % self.name, w)
                 else:
                     k = len(self.changepoints)
                     w = 1
                 cgpt = pm.Deterministic(
-                    "cgpt",
-                    pm.Laplace("cgpt_inner", 0, self.changepoints_prior_scale, shape=k)
+                    "cgpt_%s" % self.name,
+                    pm.Laplace("cgpt_inner_%s" % self.name, 0, self.changepoints_prior_scale, shape=k)
                     * w,
                 )
                 self.priors["changepoints"] = pm.Deterministic(
@@ -364,7 +364,7 @@ class PMProphet:
                     self.auto_changepoints
                 ):  # Overwrite changepoints with a uniform prior
                     with self.model:
-                        s = pm.Uniform("s", 0, total, shape=len(self.changepoints))
+                        s = pm.Uniform("s_%s" % self.name, 0, total, shape=len(self.changepoints))
                     piecewise_regression, _ = theano.scan(
                         fn=lambda x: tt.concatenate(
                             [tt.arange(x) * 0, tt.arange(total - x)]
@@ -539,8 +539,8 @@ class PMProphet:
             if plot:
                 plt.figure(figsize=(20, 10))
             for i in range(self.n_changepoints):
-                changepoint_location = self.trace["s"][:, i][self.skip_first :]
-                changepoint_weight = self.trace["w"][:, i][self.skip_first :]
+                changepoint_location = self.trace["s_%" % self.model][:, i][self.skip_first :]
+                changepoint_weight = self.trace["w_%" % self.model][:, i][self.skip_first :]
                 if plot:
                     plt.hist(changepoint_location, alpha=np.median(changepoint_weight))
                 changepoint_idx = np.median(changepoint_location)
