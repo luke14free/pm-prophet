@@ -539,8 +539,8 @@ class PMProphet:
             if plot:
                 plt.figure(figsize=(20, 10))
             for i in range(self.n_changepoints):
-                changepoint_location = self.trace["s_%" % self.model][:, i][self.skip_first :]
-                changepoint_weight = self.trace["w_%" % self.model][:, i][self.skip_first :]
+                changepoint_location = self.trace["s_%s" % self.name][:, i][self.skip_first :]
+                changepoint_weight = self.trace["w_%s" % self.name][:, i][self.skip_first :]
                 if plot:
                     plt.hist(changepoint_location, alpha=np.median(changepoint_weight))
                 changepoint_idx = np.median(changepoint_location)
@@ -949,7 +949,7 @@ class PMProphet:
 
     def _plot_regressors(self, alpha: float, plot_kwargs: Dict):
         plt.figure(**plot_kwargs)
-        _, ax = pm.forestplot(
+        ax = pm.forestplot(
             self.trace[self.skip_first // self.chains :],
             ridgeplot_alpha=alpha,
             var_names=[self.priors_names["regressors"]],
@@ -960,7 +960,7 @@ class PMProphet:
 
     def _plot_holidays(self, alpha: float, plot_kwargs: dict):
         plt.figure(**plot_kwargs)
-        _, ax = pm.forestplot(
+        ax = pm.forestplot(
             self.trace[self.skip_first // self.chains :],
             ridgeplot_alpha=alpha,
             var_names=[self.priors_names["holidays"]],
@@ -1007,7 +1007,7 @@ class PMProphet:
 
     def _plot_changepoints(self, alpha: float, plot_kwargs: Dict):
         plt.figure(**plot_kwargs)
-        _, ax = pm.forestplot(
+        ax = pm.forestplot(
             self.trace[self.skip_first // self.chains :],
             ridgeplot_alpha=alpha,
             var_names=[self.priors_names["changepoints"]],

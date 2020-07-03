@@ -72,7 +72,7 @@ def test_automatic_changepoints_2():
 
 if __name__ == "__main__":
     test_manning()
-    test_manning_reduced_six_months()
+    # test_manning_reduced_six_months() # TODO: add SMC sampling
     test_multiplicative_seasonality()
     test_automatic_changepoints()
     test_automatic_changepoints_2()
