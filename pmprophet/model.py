@@ -17,12 +17,13 @@ class Seasonality(Enum):
 
 
 class Sampler(Enum):
-    METROPOLIS = pm.Metropolis
-    NUTS = pm.NUTS
-    ADVI = pm.ADVI
+    METROPOLIS = 'metropolis'
+    NUTS = 'nuts'
+    ADVI = 'advi'
+    SMC = 'smc'
 
 
-DateType = Union[datetime.datetime, pd.datetime, str]
+DateType = Union[datetime.datetime, str]
 
 
 class PMProphet:
@@ -65,20 +66,20 @@ class PMProphet:
     """
 
     def __init__(
-        self,
-        data: pd.DataFrame,
-        growth: bool = False,
-        intercept: bool = True,
-        model: pm.Model = None,
-        name: str = None,
-        changepoints: List = [],
-        n_changepoints: int = 25,
-        changepoints_prior_scale: float = 2.5,
-        holidays_prior_scale: float = 2.5,
-        seasonality_prior_scale: float = 2.5,
-        regressors_prior_scale: bool = 2.5,
-        positive_regressors_coefficients: bool = False,
-        auto_changepoints: bool = False,
+            self,
+            data: pd.DataFrame,
+            growth: bool = False,
+            intercept: bool = True,
+            model: pm.Model = None,
+            name: str = None,
+            changepoints: List = [],
+            n_changepoints: int = 25,
+            changepoints_prior_scale: float = 2.5,
+            holidays_prior_scale: float = 2.5,
+            seasonality_prior_scale: float = 2.5,
+            regressors_prior_scale: bool = 2.5,
+            positive_regressors_coefficients: bool = False,
+            auto_changepoints: bool = False,
     ):
         self.data = data.copy()
         self.data["ds"] = pd.to_datetime(arg=self.data["ds"])
@@ -138,12 +139,12 @@ class PMProphet:
                 end=pd.to_datetime(self.data["ds"].max()),
                 periods=n_changepoints + 2,
             )[
-                1:-1
-            ]  # Exclude first and last change-point
+                                1:-1
+                                ]  # Exclude first and last change-point
 
     @staticmethod
     def fourier_series(
-        dates: pd.Series, period: Union[int, float], series_order: int
+            dates: pd.Series, period: Union[int, float], series_order: int
     ) -> np.array:
         """Provides Fourier series components with the specified frequency
         and order.
@@ -162,7 +163,7 @@ class PMProphet:
         Matrix with seasonality features.
         """
         t = np.array(
-            (dates - pd.datetime(1970, 1, 1)).dt.total_seconds().astype(np.float)
+            (dates - datetime.datetime(1970, 1, 1)).dt.total_seconds().astype(np.float)
         ) / (3600 * 24.0)
         return np.column_stack(
             [
@@ -173,10 +174,10 @@ class PMProphet:
         )
 
     def add_seasonality(
-        self,
-        seasonality: Union[int, float],
-        fourier_order: int,
-        mode: Seasonality = Seasonality.ADDITIVE,
+            self,
+            seasonality: Union[int, float],
+            fourier_order: int,
+            mode: Seasonality = Seasonality.ADDITIVE,
     ):
         """Add a seasonal component.
 
@@ -198,19 +199,19 @@ class PMProphet:
         )
         for order_idx in range(fourier_order):
             self.data["f_%s_%s" % (seasonality, order_idx)] = fourier_series[
-                :, order_idx
-            ]
+                                                              :, order_idx
+                                                              ]
 
         if mode == Seasonality.MULTIPLICATIVE:
             for order_idx in range(fourier_order):
                 self.multiplicative_data.add("f_%s_%s" % (seasonality, order_idx))
 
     def add_holiday(
-        self,
-        name: str,
-        date_start: DateType,
-        date_end: DateType,
-        mode=Seasonality.ADDITIVE,
+            self,
+            name: str,
+            date_start: DateType,
+            date_end: DateType,
+            mode=Seasonality.ADDITIVE,
     ):
         """Add holiday features
 
@@ -226,15 +227,15 @@ class PMProphet:
             Type of modeling. Either 'multiplicative' or 'additive'.
         """
         self.data[name] = (
-            (self.data.ds > date_start) & (self.data.ds < date_end)
-        ).astype(int) * self.data["y"].mean()
+                                  (self.data.ds > date_start) & (self.data.ds < date_end)
+                          ).astype(int) * self.data["y"].mean()
         if mode == Seasonality.MULTIPLICATIVE:
             self.multiplicative_data.add(name)
 
         self.holidays.append(name)
 
     def add_regressor(
-        self, name: str, regressor: np.array = None, mode=Seasonality.ADDITIVE
+            self, name: str, regressor: np.array = None, mode=Seasonality.ADDITIVE
     ):
         """Add an additional regressor to be used for fitting and predicting.
 
@@ -293,9 +294,9 @@ class PMProphet:
             if self.growth and "growth" not in self.priors:
                 self.priors["growth"] = pm.Normal("growth_%s" % self.name, 0, 0.1)
             if (
-                len(self.changepoints)
-                and "changepoints" not in self.priors
-                and len(self.changepoints)
+                    len(self.changepoints)
+                    and "changepoints" not in self.priors
+                    and len(self.changepoints)
             ):
                 if self.auto_changepoints:
                     k = self.n_changepoints
@@ -361,7 +362,7 @@ class PMProphet:
             if prior:
                 total = len(self.data)
                 if (
-                    self.auto_changepoints
+                        self.auto_changepoints
                 ):  # Overwrite changepoints with a uniform prior
                     with self.model:
                         s = pm.Uniform("s_%s" % self.name, 0, total, shape=len(self.changepoints))
@@ -372,7 +373,7 @@ class PMProphet:
                         sequences=[s],
                     )
                     piecewise_regression = (
-                        piecewise_regression.T * d.dimshuffle("x", 0)
+                            piecewise_regression.T * d.dimshuffle("x", 0)
                     ).sum(axis=-1)
                 else:
                     base_piecewise_regression = []
@@ -392,7 +393,7 @@ class PMProphet:
 
                     piecewise_regression = np.array(base_piecewise_regression)
                     piecewise_regression = (
-                        piecewise_regression.T * d.dimshuffle("x", 0)
+                            piecewise_regression.T * d.dimshuffle("x", 0)
                     ).sum(axis=-1)
             else:
                 base_piecewise_regression = []
@@ -428,11 +429,11 @@ class PMProphet:
         for idx, regressor in enumerate(self.regressors):
             if regressor in self.multiplicative_data:
                 multiplicative_regressors += (
-                    self.priors["regressors"][idx] * self.data[regressor]
+                        self.priors["regressors"][idx] * self.data[regressor]
                 )
             else:
                 additive_regressors += (
-                    self.priors["regressors"][idx] * self.data[regressor]
+                        self.priors["regressors"][idx] * self.data[regressor]
                 )
 
         additive_holidays = np.zeros(len(self.data))
@@ -440,7 +441,7 @@ class PMProphet:
         for idx, holiday in enumerate(self.holidays):
             if holiday in self.multiplicative_data:
                 multiplicative_holidays += (
-                    self.priors["holidays"][idx] * self.data[holiday]
+                        self.priors["holidays"][idx] * self.data[holiday]
                 )
             else:
                 additive_holidays += self.priors["holidays"][idx] * self.data[holiday]
@@ -450,13 +451,13 @@ class PMProphet:
         for idx, seasonal_component in enumerate(self.seasonality):
             if seasonal_component in self.multiplicative_data:
                 multiplicative_seasonality += (
-                    self.data[seasonal_component].values
-                    * self.priors["seasonality"][idx]
+                        self.data[seasonal_component].values
+                        * self.priors["seasonality"][idx]
                 )
             else:
                 additive_seasonality += (
-                    self.data[seasonal_component].values
-                    * self.priors["seasonality"][idx]
+                        self.data[seasonal_component].values
+                        * self.priors["seasonality"][idx]
                 )
 
         with self.model:
@@ -528,7 +529,7 @@ class PMProphet:
                 mu=(self.y - self.data["y"].mean()) / self.data["y"].std(),
                 sd=self.priors["sigma"],
                 observed=(self.data["y"] - self.data["y"].mean())
-                / self.data["y"].std(),
+                         / self.data["y"].std(),
             )
             pm.Deterministic("y_hat_%s" % self.name, self.y)
 
@@ -539,8 +540,8 @@ class PMProphet:
             if plot:
                 plt.figure(figsize=(20, 10))
             for i in range(self.n_changepoints):
-                changepoint_location = self.trace["s_%" % self.model][:, i][self.skip_first :]
-                changepoint_weight = self.trace["w_%" % self.model][:, i][self.skip_first :]
+                changepoint_location = self.trace["s_%" % self.model][:, i][self.skip_first:]
+                changepoint_weight = self.trace["w_%" % self.model][:, i][self.skip_first:]
                 if plot:
                     plt.hist(changepoint_location, alpha=np.median(changepoint_weight))
                 changepoint_idx = np.median(changepoint_location)
@@ -553,15 +554,15 @@ class PMProphet:
                 )
 
     def fit(
-        self,
-        draws: int = 500,
-        chains: int = 4,
-        trace_size: int = 500,
-        method: Sampler = Sampler.NUTS,
-        map_initialization: bool = False,
-        finalize: bool = True,
-        step_kwargs: Dict = None,
-        sample_kwargs: Dict = None,
+            self,
+            draws: int = 500,
+            chains: int = 4,
+            trace_size: int = 500,
+            method: Sampler = Sampler.NUTS,
+            map_initialization: bool = False,
+            finalize: bool = True,
+            step_kwargs: Dict = None,
+            sample_kwargs: Dict = None,
     ):
         """Fit the PMProphet model.
 
@@ -608,8 +609,8 @@ class PMProphet:
                     self.trace = {k: np.array([v]) for k, v in self.start.items()}
 
             if draws:
-                if method != Sampler.ADVI:
-                    step_method = method.value(**step_kwargs)
+                if method in (Sampler.NUTS, Sampler.METROPOLIS):
+                    step_method = pm.NUTS(**step_kwargs) if method == Sampler.NUTS else pm.Metropolis(**step_kwargs)
                     self.trace = pm.sample(
                         draws,
                         chains=chains,
@@ -617,20 +618,22 @@ class PMProphet:
                         start=self.start if map_initialization else None,
                         **sample_kwargs
                     )
-                else:
+                elif method == Sampler.ADVI:
                     res = pm.fit(
                         draws, start=self.start if map_initialization else None
                     )
                     self.trace = res.sample(trace_size)
+                elif method == Sampler.SMC:
+                    self.trace = pm.sample_smc(draws, start=self.start if map_initialization else None)
 
     def predict(
-        self,
-        forecasting_periods: int = 10,
-        freq: str = "D",
-        extra_data: pd.DataFrame = None,
-        include_history: bool = True,
-        alpha: float = 0.05,
-        plot: bool = False,
+            self,
+            forecasting_periods: int = 10,
+            freq: str = "D",
+            extra_data: pd.DataFrame = None,
+            include_history: bool = True,
+            alpha: float = 0.05,
+            plot: bool = False,
     ):
         """Predict using the PMProphet model.
 
@@ -760,19 +763,19 @@ class PMProphet:
                 ).reshape(len(m.data), len(trace))
 
         if (
-            np.sum(
-                multiplicative_holidays
-                + multiplicative_seasonality
-                + multiplicative_regressors
-            )
-            == 0
+                np.sum(
+                    multiplicative_holidays
+                    + multiplicative_seasonality
+                    + multiplicative_regressors
+                )
+                == 0
         ):
             multiplicative_term = 1
         else:
             multiplicative_term = (
-                multiplicative_holidays
-                + multiplicative_seasonality
-                + multiplicative_regressors
+                    multiplicative_holidays
+                    + multiplicative_seasonality
+                    + multiplicative_regressors
             )
 
         y_hat *= multiplicative_term
@@ -780,7 +783,7 @@ class PMProphet:
 
         y_hat_noised = np.random.normal(
             y_hat[:, self.skip_first:],
-            self.data['y'].std() * self.trace[self.priors_names["sigma"]][self.skip_first :]
+            self.data['y'].std() * self.trace[self.priors_names["sigma"]][self.skip_first:]
         )
 
         ddf = pd.DataFrame(
@@ -851,15 +854,15 @@ class PMProphet:
         return ddf
 
     def plot_components(
-        self,
-        seasonality: bool = True,
-        growth: bool = True,
-        regressors: bool = True,
-        intercept: bool = True,
-        changepoints: bool = True,
-        holidays: bool = True,
-        plt_kwargs: Dict = None,
-        alpha: float = 0.05,
+            self,
+            seasonality: bool = True,
+            growth: bool = True,
+            regressors: bool = True,
+            intercept: bool = True,
+            changepoints: bool = True,
+            holidays: bool = True,
+            plt_kwargs: Dict = None,
+            alpha: float = 0.05,
     ):
         """Plot the PMProphet forecast components.
 
@@ -903,7 +906,7 @@ class PMProphet:
 
     def _plot_growth(self, alpha: float, plot_kwargs: Dict):
         ddf = self.make_trend(alpha)
-        g = self._fit_growth(prior=False)[:, self.skip_first :]
+        g = self._fit_growth(prior=False)[:, self.skip_first:]
         ddf["growth_mid"] = np.percentile(g, 50, axis=-1)  # np.mean(g, axis=-1)
         ddf["growth_low"] = np.percentile(g, alpha / 2 * 100, axis=-1)
         ddf["growth_high"] = np.percentile(g, (1 - alpha / 2) * 100, axis=-1)
@@ -924,7 +927,7 @@ class PMProphet:
     def _plot_intercept(self, alpha: float, plot_kwargs: Dict):
         plt.figure(**plot_kwargs)
         pm.forestplot(
-            self.trace[self.skip_first // self.chains :],
+            self.trace[self.skip_first // self.chains:],
             var_names=[self.priors_names["intercept"]],
             ridgeplot_alpha=alpha,
         )
@@ -950,7 +953,7 @@ class PMProphet:
     def _plot_regressors(self, alpha: float, plot_kwargs: Dict):
         plt.figure(**plot_kwargs)
         _, ax = pm.forestplot(
-            self.trace[self.skip_first // self.chains :],
+            self.trace[self.skip_first // self.chains:],
             ridgeplot_alpha=alpha,
             var_names=[self.priors_names["regressors"]],
         )
@@ -961,7 +964,7 @@ class PMProphet:
     def _plot_holidays(self, alpha: float, plot_kwargs: dict):
         plt.figure(**plot_kwargs)
         _, ax = pm.forestplot(
-            self.trace[self.skip_first // self.chains :],
+            self.trace[self.skip_first // self.chains:],
             ridgeplot_alpha=alpha,
             var_names=[self.priors_names["holidays"]],
         )
@@ -1008,7 +1011,7 @@ class PMProphet:
     def _plot_changepoints(self, alpha: float, plot_kwargs: Dict):
         plt.figure(**plot_kwargs)
         _, ax = pm.forestplot(
-            self.trace[self.skip_first // self.chains :],
+            self.trace[self.skip_first // self.chains:],
             ridgeplot_alpha=alpha,
             var_names=[self.priors_names["changepoints"]],
         )
@@ -1028,18 +1031,18 @@ class PMProphet:
             all_seasonalities.append(("multiplicative", multiplicative_ts))
         for sn, ts in all_seasonalities:
             if (sn == "multiplicative" and np.sum(ts) == 1) or (
-                sn == "additive" and np.sum(ts) == 0
+                    sn == "additive" and np.sum(ts) == 0
             ):
                 continue
             ddf = pd.DataFrame(
                 np.vstack(
                     [
-                        np.percentile(ts[:, :, self.skip_first :], 50, axis=-1),
+                        np.percentile(ts[:, :, self.skip_first:], 50, axis=-1),
                         np.percentile(
-                            ts[:, :, self.skip_first :], alpha / 2 * 100, axis=-1
+                            ts[:, :, self.skip_first:], alpha / 2 * 100, axis=-1
                         ),
                         np.percentile(
-                            ts[:, :, self.skip_first :], (1 - alpha / 2) * 100, axis=-1
+                            ts[:, :, self.skip_first:], (1 - alpha / 2) * 100, axis=-1
                         ),
                     ]
                 ).T,
@@ -1069,9 +1072,9 @@ class PMProphet:
                                 "%s_high" % period,
                             ]
                         ]
-                        .groupby("dow")
-                        .mean()
-                        .sort_values("dow")
+                            .groupby("dow")
+                            .mean()
+                            .sort_values("dow")
                     )
                     graph.loc[:, "ds"] = [
                         ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i]
