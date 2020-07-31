@@ -5,7 +5,7 @@ REQUIRED_PACKAGES = ["matplotlib", "numpy", "pandas >= 0.23.0", "pymc3"]
 
 setup(
     name="pmprophet",
-    version="0.2.8",
+    version="0.2.9",
     description="Pymc3-based universal time series prediction and decomposition library inspired by Facebook Prophet",
     url="https://github.com/luke14free/pm-prophet",
     author="Luca Giacomel",

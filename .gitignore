@@ -1,5 +1,6 @@
 venv
 .idea
+.vscode
 *.code-workspace
 *.ipynb
 *__pycache__

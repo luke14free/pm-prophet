@@ -20,7 +20,6 @@ class Sampler(Enum):
     METROPOLIS = 'metropolis'
     NUTS = 'nuts'
     ADVI = 'advi'
-    SMC = 'smc'
 
 
 DateType = Union[datetime.datetime, str]
@@ -192,19 +191,24 @@ class PMProphet:
 
         """
         self.seasonality.extend(
-            ["f_%s_%s" % (seasonality, order_idx) for order_idx in range(fourier_order)]
+            ["f_%s_%s_%s" % (seasonality, order_idx, fun) for order_idx in range(fourier_order) for fun in
+             ['sin', 'cos']]
         )
         fourier_series = PMProphet.fourier_series(
             pd.to_datetime(self.data["ds"]), seasonality, fourier_order
         )
         for order_idx in range(fourier_order):
-            self.data["f_%s_%s" % (seasonality, order_idx)] = fourier_series[
-                                                              :, order_idx
-                                                              ]
+            self.data["f_%s_%s_sin" % (seasonality, order_idx)] = fourier_series[
+                                                                  :, order_idx
+                                                                  ]
+            self.data["f_%s_%s_cos" % (seasonality, order_idx)] = fourier_series[
+                                                                  :, order_idx + fourier_order
+                                                                  ]
 
         if mode == Seasonality.MULTIPLICATIVE:
             for order_idx in range(fourier_order):
-                self.multiplicative_data.add("f_%s_%s" % (seasonality, order_idx))
+                self.multiplicative_data.add("f_%s_%s_sin" % (seasonality, order_idx))
+                self.multiplicative_data.add("f_%s_%s_cos" % (seasonality, fourier_order + order_idx))
 
     def add_holiday(
             self,
@@ -540,8 +544,8 @@ class PMProphet:
             if plot:
                 plt.figure(figsize=(20, 10))
             for i in range(self.n_changepoints):
-                changepoint_location = self.trace["s_%" % self.model][:, i][self.skip_first:]
-                changepoint_weight = self.trace["w_%" % self.model][:, i][self.skip_first:]
+                changepoint_location = self.trace["s_%s" % self.name][:, i][self.skip_first:]
+                changepoint_weight = self.trace["w_%s" % self.name][:, i][self.skip_first:]
                 if plot:
                     plt.hist(changepoint_location, alpha=np.median(changepoint_weight))
                 changepoint_idx = np.median(changepoint_location)
@@ -623,8 +627,6 @@ class PMProphet:
                         draws, start=self.start if map_initialization else None
                     )
                     self.trace = res.sample(trace_size)
-                elif method == Sampler.SMC:
-                    self.trace = pm.sample_smc(draws, start=self.start if map_initialization else None)
 
     def predict(
             self,
@@ -699,9 +701,9 @@ class PMProphet:
         periods = {}
         for column in self.data.columns:
             if column.startswith("f_"):
-                period, order = column[2:].split("_")
-                periods.setdefault(period, [])
-                periods[period].append(int(order))
+                period, order, _ = column[2:].split("_")
+                periods.setdefault(period, set([]))
+                periods[period].add(int(order))
 
         for period, orders in periods.items():
             m.add_seasonality(seasonality=float(period), fourier_order=max(orders) + 1)
@@ -952,7 +954,7 @@ class PMProphet:
 
     def _plot_regressors(self, alpha: float, plot_kwargs: Dict):
         plt.figure(**plot_kwargs)
-        _, ax = pm.forestplot(
+        ax = pm.forestplot(
             self.trace[self.skip_first // self.chains:],
             ridgeplot_alpha=alpha,
             var_names=[self.priors_names["regressors"]],
@@ -963,7 +965,7 @@ class PMProphet:
 
     def _plot_holidays(self, alpha: float, plot_kwargs: dict):
         plt.figure(**plot_kwargs)
-        _, ax = pm.forestplot(
+        ax = pm.forestplot(
             self.trace[self.skip_first // self.chains:],
             ridgeplot_alpha=alpha,
             var_names=[self.priors_names["holidays"]],
@@ -1010,7 +1012,7 @@ class PMProphet:
 
     def _plot_changepoints(self, alpha: float, plot_kwargs: Dict):
         plt.figure(**plot_kwargs)
-        _, ax = pm.forestplot(
+        ax = pm.forestplot(
             self.trace[self.skip_first // self.chains:],
             ridgeplot_alpha=alpha,
             var_names=[self.priors_names["changepoints"]],
