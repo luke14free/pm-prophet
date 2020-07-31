@@ -48,6 +48,18 @@ def test_multiplicative_seasonality():
     m.plot_components(intercept=False)
 
 
+def test_automatic_changepoints_3_funneling_predictions():
+    deltas = np.random.normal(scale=.1, size=200)
+    y = np.cumsum(deltas)
+    df = pd.DataFrame()
+    df["ds"] = pd.date_range(start="2018-01-01", periods=200)
+    df["y"] = y
+    m = PMProphet(df, auto_changepoints=True, growth=True, name="model")
+    m.fit(method=Sampler.METROPOLIS, chains=1, draws=2000)
+    m.predict(200, alpha=0.2, include_history=True, plot=True)
+    m.plot_components(intercept=False)
+
+
 def test_automatic_changepoints():
     z = np.arange(200) + np.concatenate([np.zeros(100), np.arange(100) * -2])
     df = pd.DataFrame()
@@ -95,4 +107,5 @@ if __name__ == "__main__":
     test_multiplicative_seasonality()
     test_automatic_changepoints()
     test_automatic_changepoints_2()
+    test_automatic_changepoints_3_funneling_predictions()
     test_seasonality_shape()
