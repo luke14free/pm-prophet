@@ -828,7 +828,7 @@ class PMProphet:
             plt.grid(axis="y")
             plt.show()
 
-        return ddf
+        return ddf, y_hat_noised
 
     def make_trend(self, alpha: float = 0.05):
         """
